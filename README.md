@@ -65,10 +65,16 @@ Gemini Enterprise allows integrating remote tools and custom extensions via stan
 ### Step-by-Step Configuration:
 
 1. **Deploy your Server to a Public Endpoint** (e.g. Google Cloud Run, GCP Compute Engine, or local tunnel like `ngrok`).
-   - Cloud Run example deployment:
+   - Cloud Run direct command deployment:
      ```bash
      gcloud run deploy mcp-server --source . --port 3000 --set-env-vars AUTH_TOKEN="your-secret-mcp-token-here"
      ```
+   - **Using Google Cloud Build**:
+     ```bash
+     gcloud builds submit --config=cloudbuild.yaml --substitutions=_AUTH_TOKEN="your-secret-mcp-token-here"
+     ```
+   - **Infrastructure Provisioning (Load Balancer)**:
+     See [`infra/README.md`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/README.md) to provision a GCP Global External Application Load Balancer with a static IP in front of Cloud Run.
    - Copy the deployed HTTPS URL (e.g., `https://mcp-server-xyz-uc.a.run.app`).
 
 2. **Register Extension in Gemini Enterprise Console**:

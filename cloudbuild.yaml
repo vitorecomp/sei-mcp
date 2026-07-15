@@ -1,0 +1,50 @@
+steps:
+  # 1. Build Docker container image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:${_TAG}'
+      - '.'
+
+  # 2. Push Docker image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:${_TAG}'
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-cloud-run'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:${_TAG}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated' # Allows public HTTPS access; Auth header is enforced by server code
+      - '--port'
+      - '3000'
+      - '--set-env-vars'
+      - 'REQUIRE_AUTH=true,AUTH_TOKEN=${_AUTH_TOKEN}'
+
+# Images to be stored in registry
+images:
+  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:${_TAG}'
+
+# Default substitution variables (can be overridden in Cloud Build trigger/CLI)
+substitutions:
+  _SERVICE_NAME: 'sei-mcp-server'
+  _REGION: 'southamerica-east1'
+  _AUTH_TOKEN: 'gemini-enterprise-secret-123'
+  _TAG: 'latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
