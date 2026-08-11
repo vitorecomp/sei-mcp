@@ -1,569 +1,280 @@
-# Enterprise Node.js MCP Server with Authentication
+# Enterprise Node.js MCP Server for Gemini Enterprise
 
-A simple, production-ready **Model Context Protocol (MCP)** server built with **Node.js**, **Express**, and **TypeScript**. It supports HTTP Server-Sent Events (SSE) transport and flexible token authentication for seamless integration with **Gemini Enterprise**, **Claude Desktop**, **Cursor**, and other MCP-compliant clients.
-
----
-
-## Table of Contents
-
-- [Architecture](#architecture)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Configuration](#configuration)
-- [Local Development](#local-development)
-- [Testing & Verification](#testing--verification)
-- [Deployment Guide](#deployment-guide)
-  - [Option 1: Deploy Directly to Google Cloud Run (CLI)](#option-1-deploy-directly-to-google-cloud-run-cli)
-  - [Option 2: Deploy with Google Cloud Build (CI/CD)](#option-2-deploy-with-google-cloud-build-cicd)
-  - [Option 3: Enterprise Infrastructure with Terraform (Load Balancer + NEG + SSL)](#option-3-enterprise-infrastructure-with-terraform-load-balancer--neg--ssl)
-  - [Option 4: Docker / Generic Container Deployment](#option-4-docker--generic-container-deployment)
-- [Client Configuration](#client-configuration)
-  - [Gemini Enterprise Integration](#gemini-enterprise-integration)
-  - [Claude Desktop Integration](#claude-desktop-integration)
-  - [Cursor / IDE Integration](#cursor--ide-integration)
-  - [MCP Inspector](#mcp-inspector)
-- [API & Endpoint Reference](#api--endpoint-reference)
-- [Built-in Tools](#built-in-tools)
-- [Extending & Adding Custom Tools](#extending--adding-custom-tools)
-- [Troubleshooting & FAQ](#troubleshooting--faq)
-- [License](#license)
+A production-ready **Model Context Protocol (MCP)** server built with **Node.js**, **Express**, and **TypeScript**. It provides Server-Sent Events (SSE) transport and token authentication, designed specifically for integration with **Gemini Enterprise** custom tools and extensions.
 
 ---
 
 ## Architecture
 
 ```
-                                  ┌────────────────────────────────────────────────────────┐
-                                  │                     Clients                            │
-                                  │  Gemini Enterprise / Claude / Cursor / MCP Inspector   │
-                                  └──────────────────────────┬─────────────────────────────┘
-                                                             │
-                                      HTTP / SSE with Auth Header or Query Param
-                                      (Bearer Token / x-api-key / ?token=...)
-                                                             │
-                                                             ▼
-                                  ┌────────────────────────────────────────────────────────┐
-                                  │          GCP External Application Load Balancer        │
-                                  │          (Optional: Static IP + Managed SSL Cert)      │
-                                  └──────────────────────────┬─────────────────────────────┘
-                                                             │
-                                                             ▼
-                                  ┌────────────────────────────────────────────────────────┐
-                                  │            Serverless NEG / Google Cloud Run           │
-                                  │              (Container on Port 3000)                  │
-                                  └──────────────────────────┬─────────────────────────────┘
-                                                             │
-                               ┌─────────────────────────────┴─────────────────────────────┐
-                               │                                                           │
-                               ▼                                                           ▼
-                ┌──────────────────────────────┐                            ┌──────────────────────────────┐
-                │        GET /health           │                            │    GET /sse & POST /messages │
-                │   (Unauthenticated Probe)    │                            │  (Token Authentication Gate) │
-                └──────────────────────────────┘                            └──────────────┬───────────────┘
-                                                                                           │
-                                                                                           ▼
-                                                                            ┌──────────────────────────────┐
-                                                                            │         MCP Server           │
-                                                                            │     (@modelcontextprotocol)  │
-                                                                            │  - get_system_info           │
-                                                                            │  - echo                      │
-                                                                            │  - calculate                 │
-                                                                            └──────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Gemini Enterprise                             │
+│                  (Admin Console / Extensions / Tools)                   │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                 HTTPS / SSE Request with OAuth Bearer Token
+                 `Authorization: Bearer <OAUTH_ACCESS_TOKEN>`
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 GCP External Application Load Balancer                  │
+│                (Global Static IP + Managed SSL via Terraform)           │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   Serverless NEG / Google Cloud Run                     │
+│                        (Container on Port 3000)                         │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+       ┌─────────────────────────────┴─────────────────────────────┐
+       │                                                           │
+       ▼                                                           ▼
+┌──────────────────────────────┐            ┌──────────────────────────────┐
+│         GET /health          │            │  GET /sse & POST /messages   │
+│   (Unauthenticated Probe)    │            │  (Google OAuth 2.0 Auth Gate)│
+└──────────────────────────────┘            └──────────────┬───────────────┘
+                                                           │
+                                                           ▼
+                                            ┌──────────────────────────────┐
+                                            │      MCP Server Actions      │
+                                            │   - calculate                │
+                                            │   - get_system_info          │
+                                            │   - echo                     │
+                                            └──────────────────────────────┘
 ```
-
----
-
-## Features
-
-- ⚡ **Standard MCP Implementation**: Built on official [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk).
-- 📡 **HTTP / SSE Transport**: Supports Server-Sent Events (`/sse`) for bidirectional streaming and `/messages` for JSON-RPC POST requests.
-- 🔐 **Multi-Method Authentication Middleware**:
-  - `Authorization: Bearer <AUTH_TOKEN>` header
-  - `x-api-key: <AUTH_TOKEN>` custom header
-  - `?token=<AUTH_TOKEN>` URL query parameter (convenient for SSE browser/EventSource clients)
-- 🛠️ **Built-in Sample Tools**:
-  - `get_system_info`: Returns server status, Node.js version, uptime, and environment.
-  - `echo`: Echoes input messages.
-  - `calculate`: Evaluates basic arithmetic operations (`add`, `subtract`, `multiply`, `divide`).
-- 🏥 **Health Check Endpoint**: `/health` unauthenticated endpoint for Cloud Run readiness/liveness probes and load balancer health checks.
-- 🐳 **Optimized Multi-Stage Dockerfile**: Slim, secure Node.js Alpine image ready for Cloud Run, Kubernetes, or standalone Docker.
-- ☁️ **Infrastructure as Code**: Complete Terraform configuration in [`infra/`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/README.md) for deploying a Global External HTTP(S) Load Balancer with Serverless Network Endpoint Groups (NEG) and optional Google-managed SSL.
 
 ---
 
 ## Prerequisites
 
-- **Node.js**: v20.x or v22.x LTS installed ([Node.js downloads](https://nodejs.org/)).
-- **npm**: v10+ (bundled with Node.js).
-- **Docker** *(optional)*: For building and testing container images locally.
-- **Google Cloud SDK (`gcloud`)** *(optional)*: For deploying to GCP Cloud Run and Cloud Build.
-- **Terraform CLI (>= 1.5.0)** *(optional)*: For provisioning GCP infrastructure.
+- [Google Cloud SDK (`gcloud`)](https://cloud.google.com/sdk/docs/install) installed and authenticated.
+- [Terraform CLI](https://developer.hashicorp.com/terraform/downloads) (>= 1.5.0).
+- [Node.js](https://nodejs.org/) (v20.x or v22.x LTS) & npm (for local development).
+- A Google Cloud Project with billing enabled and the following APIs enabled:
+  ```bash
+  gcloud services enable run.googleapis.com compute.googleapis.com cloudbuild.googleapis.com
+  ```
 
 ---
 
 ## Configuration
 
-Server behavior and security are controlled via environment variables.
+Server behavior and environment settings:
 
-### Environment Variables
-
-| Variable | Type | Default | Required | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `PORT` | `number` | `3000` | No | Port on which the HTTP/SSE server listens. |
-| `HOST` | `string` | `0.0.0.0` | No | Network interface binding (use `0.0.0.0` for containers/cloud). |
-| `AUTH_TOKEN` | `string` | *(none)* | **Yes** (if auth is enabled) | Secret token required to authenticate requests to `/sse` and `/messages`. |
-| `REQUIRE_AUTH` | `boolean` | `true` | No | Set to `false` to disable token verification (e.g. for isolated local testing). Set to `true` for production. |
-| `NODE_ENV` | `string` | `development` | No | Runtime environment mode (`development` or `production`). |
-
-### Setting Up Environment Variables
-
-1. Copy the sample environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit [`.env`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/.env.example):
-   ```env
-   # Server Configuration
-   PORT=3000
-   HOST=0.0.0.0
-
-   # Security / Authentication
-   AUTH_TOKEN=your-strong-secret-mcp-token-here
-   REQUIRE_AUTH=true
-   ```
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `NODE_ENV` | When set to `production` (default in cloud), enforces Google OAuth 2.0 authentication. When set to `dev` or `development`, authentication is disabled. | `production` |
+| `OAUTH_CLIENT_ID` | Google OAuth 2.0 Client ID for token audience verification in production | *(none)* |
+| `PORT` | Listening port for the application | `3000` |
+| `HOST` | Binding address | `0.0.0.0` |
 
 ---
 
-## Local Development
+## Streamlined Setup: Gemini Enterprise with Terraform
 
-### 1. Install Dependencies
+Follow these steps to deploy the MCP server and connect it to Gemini Enterprise.
 
-```bash
-npm install
-```
+### Step 1: Build & Deploy Container to Cloud Run
 
-### 2. Run in Development Mode (Live Reload)
-
-Runs the TypeScript source code directly with `tsx`:
+Build the multi-stage Docker image using Google Cloud Build and deploy it to Cloud Run:
 
 ```bash
-npm run dev
+# 1. Ensure you are in the project root directory
+cd /path/to/sei-mcp
+
+# 2. Set your GCP project
+gcloud config set project YOUR_GCP_PROJECT_ID
+
+# 3. Build Docker container image via Cloud Build
+gcloud builds submit --tag gcr.io/YOUR_GCP_PROJECT_ID/sei-mcp-server:latest .
+
+# 4. Deploy to Cloud Run (Google OAuth 2.0 authentication enforced in production)
+gcloud run deploy sei-mcp-server \
+  --image gcr.io/YOUR_GCP_PROJECT_ID/sei-mcp-server:latest \
+  --region southamerica-east1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --port 3000 \
+  --set-env-vars NODE_ENV=production,OAUTH_CLIENT_ID="YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com" \
+  --min-instances 0 \
+  --max-instances 5 \
+  --timeout 300
 ```
 
-### 3. Build and Run in Production Mode
-
-Compiles TypeScript to JavaScript in `dist/` and runs the production build:
-
-```bash
-npm run build
-npm start
-```
+> [!NOTE]
+> - In **production** (`NODE_ENV=production`), the server strictly enforces **Google OAuth 2.0 authentication** on all `/sse` and `/messages` endpoints.
+> - In **development** (`NODE_ENV=dev`), authentication is disabled for frictionless local development.
 
 ---
 
-## Testing & Verification
+### Step 2: Provision Load Balancer & Static IP with Terraform
 
-Once the server is running locally (e.g. at `http://localhost:3000`), you can test the endpoints using `curl` or browser tools.
+Use the included Terraform module in [`infra/`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/README.md) to provision an External Application Load Balancer with a Serverless NEG pointing to your Cloud Run service.
 
-### 1. Health Check (Unauthenticated)
-
-```bash
-curl -i http://localhost:3000/health
-```
-
-**Expected Response (`200 OK`)**:
-```json
-{
-  "status": "healthy",
-  "service": "sei-mcp-server",
-  "authRequired": true,
-  "activeSessions": 0
-}
-```
-
-### 2. Unauthenticated Request to `/sse` (Should Fail)
-
-```bash
-curl -i http://localhost:3000/sse
-```
-
-**Expected Response (`401 Unauthorized`)**:
-```json
-{
-  "error": "Unauthorized",
-  "message": "Missing authentication token. Provide Authorization header (Bearer <token>) or x-api-key."
-}
-```
-
-### 3. Authenticated SSE Stream with Bearer Token
-
-```bash
-curl -N -i -H "Authorization: Bearer your-strong-secret-mcp-token-here" http://localhost:3000/sse
-```
-
-**Expected Stream Output**:
-```
-HTTP/1.1 200 OK
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-
-event: endpoint
-data: /messages?sessionId=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-```
-
-### 4. Authenticated SSE Stream with `x-api-key` Header
-
-```bash
-curl -N -i -H "x-api-key: your-strong-secret-mcp-token-here" http://localhost:3000/sse
-```
-
-### 5. Authenticated SSE Stream with Query Parameter
-
-```bash
-curl -N -i "http://localhost:3000/sse?token=your-strong-secret-mcp-token-here"
-```
-
----
-
-## Deployment Guide
-
-### Option 1: Deploy Directly to Google Cloud Run (CLI)
-
-The fastest way to deploy the MCP server to Google Cloud is using the `gcloud` CLI with source-based deployment:
-
-1. **Authenticate and set your GCP project**:
-   ```bash
-   gcloud auth login
-   gcloud config set project YOUR_GCP_PROJECT_ID
-   ```
-
-2. **Deploy directly from source**:
-   ```bash
-   gcloud run deploy sei-mcp-server \
-     --source . \
-     --region southamerica-east1 \
-     --platform managed \
-     --allow-unauthenticated \
-     --port 3000 \
-     --set-env-vars REQUIRE_AUTH=true,AUTH_TOKEN="your-strong-secret-mcp-token-here" \
-     --min-instances 0 \
-     --max-instances 5 \
-     --timeout 300
-   ```
-
-   > [!NOTE]
-   > `--allow-unauthenticated` allows Cloud Run ingress to receive traffic publicly. Access to MCP tools is secured by the application's authentication middleware via `AUTH_TOKEN`.
-
-3. **Obtain Service URL**:
-   After deployment, `gcloud` outputs your Service URL (e.g. `https://sei-mcp-server-xyz-uc.a.run.app`). Your SSE endpoint will be:
-   ```
-   https://sei-mcp-server-xyz-uc.a.run.app/sse
-   ```
-
----
-
-### Option 2: Deploy with Google Cloud Build (CI/CD)
-
-The repository includes a ready-to-use [`cloudbuild.yaml`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/cloudbuild.yaml) pipeline that builds the container image, pushes it to Google Container/Artifact Registry, and deploys it to Cloud Run.
-
-1. **Submit Cloud Build with Substitutions**:
-   ```bash
-   gcloud builds submit --config=cloudbuild.yaml \
-     --substitutions=_SERVICE_NAME="sei-mcp-server",_REGION="southamerica-east1",_AUTH_TOKEN="your-strong-secret-mcp-token-here",_TAG="latest"
-   ```
-
-2. **Automated Trigger (Optional)**:
-   You can connect your GitHub repository to Cloud Build triggers to automatically deploy on every push to `main`.
-
----
-
-### Option 3: Enterprise Infrastructure with Terraform (Load Balancer + NEG + SSL)
-
-For enterprise production deployments requiring a **Static IP address**, **Custom Domain**, and **Google-managed SSL Certificate**, use the Terraform configuration in [`infra/`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/README.md).
-
-#### Infrastructure Architecture
-- **Global Static IP Address**: Dedicated IPv4 entry point.
-- **External HTTP(S) Load Balancer**: Distributes traffic and manages SSL termination.
-- **Serverless NEG**: Connects the Load Balancer directly to the Cloud Run service.
-- **Managed SSL Certificate**: Automatic provisioning and renewal via Google Cloud.
-
-#### Step-by-Step Provisioning:
-
-1. **Deploy the Cloud Run service** first using Option 1 or Option 2.
-2. **Navigate to the infrastructure directory**:
+1. Navigate to the infrastructure folder:
    ```bash
    cd infra
    ```
-3. **Configure Terraform Variables**:
+
+2. Create and configure your `terraform.tfvars`:
    ```bash
    cp terraform.tfvars.example terraform.tfvars
    ```
-   Edit [`infra/terraform.tfvars`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/terraform.tfvars.example):
+
+3. Edit [`infra/terraform.tfvars`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/infra/terraform.tfvars.example):
    ```hcl
-   project_id             = "your-gcp-project-id"
+   project_id             = "YOUR_GCP_PROJECT_ID"
    region                 = "southamerica-east1"
    cloud_run_service_name = "sei-mcp-server"
 
-   # Set to true if you have a custom domain pointing to the Load Balancer IP
+   # Optional: Set to true if you have a custom domain pointing to the Load Balancer IP
    enable_ssl  = false
-   domain_name = "mcp.example.com"
+   domain_name = ""
    ```
-4. **Initialize and Apply Terraform**:
+
+4. Initialize and apply Terraform:
    ```bash
    terraform init
-   terraform plan
    terraform apply
    ```
-5. **Inspect Outputs**:
-   ```
-   load_balancer_ip      = "34.120.x.x"
-   mcp_sse_endpoint_http = "http://34.120.x.x/sse"
-   ```
+
+5. Note the outputs:
+   - `load_balancer_ip`: Static IP of the Load Balancer (e.g. `34.120.x.x`).
+   - `mcp_sse_endpoint_http`: SSE endpoint URL (e.g. `http://34.120.x.x/sse` or `https://<YOUR-DOMAIN>/sse`).
 
 ---
 
-### Option 4: Docker / Generic Container Deployment
+### Step 3: Register Extension in Gemini Enterprise (OAuth 2.0)
 
-The [`Dockerfile`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/Dockerfile) uses a multi-stage build:
+When adding an MCP Server in **Gemini Enterprise** (or Vertex AI Extensions / Custom Tools), configure the OAuth 2.0 authentication fields:
 
-1. **Build the image**:
-   ```bash
-   docker build -t sei-mcp-server .
-   ```
+#### 1. Create OAuth 2.0 Credentials in Google Cloud Console
+1. Go to **Google Cloud Console** > **APIs & Services** > **Credentials**.
+2. Click **Create Credentials** > **OAuth client ID**.
+3. Select Application type: **Web application**.
+4. Set Name: `Gemini Enterprise MCP Extension`.
+5. Under **Authorized redirect URIs**, add both of the following authoritative redirect URIs:
+   - `https://vertexaisearch.cloud.google.com/oauth-redirect`
+   - `https://vertexaisearch.cloud.google.com/static/oauth/oauth.html`
+6. Click **Create** and copy your **Client ID** and **Client Secret**.
 
-2. **Run container with environment variables**:
-   ```bash
-   docker run -d \
-     --name sei-mcp-server \
-     -p 3000:3000 \
-     -e PORT=3000 \
-     -e HOST=0.0.0.0 \
-     -e REQUIRE_AUTH=true \
-     -e AUTH_TOKEN=your-strong-secret-mcp-token-here \
-     sei-mcp-server
-   ```
+#### 2. Fill in Gemini Enterprise Extension Form
 
-3. **Check container logs**:
-   ```bash
-   docker logs -f sei-mcp-server
-   ```
+| Field | Value / Description | Example |
+| :--- | :--- | :--- |
+| **MCP Server URL** | Your deployed StreamableHTTP or SSE endpoint URL | `https://mcp-demo-sei.aidemo.space/mcp` *(or `/sse`)* |
+| **Authorization URL** | Google OAuth 2.0 Authorization Endpoint | `https://accounts.google.com/o/oauth2/v2/auth` |
+| **Authorization URL Parameters** | Offline access & consent prompt query params | `&access_type=offline&prompt=consent` |
+| **Token URL** | Google OAuth 2.0 Token Exchange Endpoint | `https://oauth2.googleapis.com/token` |
+| **Client ID** | OAuth 2.0 Client ID from GCP Credentials | `xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com` |
+| **Client Secret** | OAuth 2.0 Client Secret from GCP Credentials | `GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx` |
+| **Scopes** | Space-separated list of OAuth scopes | `openid email profile` |
 
----
-
-## Client Configuration
-
-### Gemini Enterprise Integration
-
-Gemini Enterprise supports integrating custom tools via remote Model Context Protocol (MCP) HTTP/SSE endpoints.
-
-#### Step-by-Step Setup:
-
-1. **Open the Admin Console**:
-   - Navigate to the **Gemini Enterprise Admin Console** (or Vertex AI Agent Builder / Extensions).
-   - Go to **Extensions** > **Custom Tools / MCP** > **Add Custom Extension**.
-
-2. **Configure Connection Parameters**:
-   - **Name**: `Enterprise MCP Server` (or descriptive name).
-   - **Transport Type**: `Server-Sent Events (SSE)` or `Remote HTTP / MCP`.
-   - **Server Endpoint URL**: `https://<YOUR-CLOUD-RUN-URL>/sse` (e.g. `https://sei-mcp-server-xyz-uc.a.run.app/sse`).
-   - **Authentication Type**: `Bearer Token` or `API Key Header`.
-   - **Header Key**: `Authorization` (Value: `Bearer your-strong-secret-mcp-token-here`) or `x-api-key` (Value: `your-strong-secret-mcp-token-here`).
-
-3. **Save and Discover Tools**:
-   - Click **Save / Validate Connection**.
-   - Gemini Enterprise will connect to `/sse`, perform protocol handshake, and discover all registered tools (`get_system_info`, `echo`, `calculate`).
-   - The tools are now immediately usable in Gemini Enterprise prompts and agent workflows.
+3. Click **Validate / Save**. Gemini Enterprise connects to `/mcp`, performs protocol discovery, and registers all actions (`calculate`, `get_system_info`, `echo`).
 
 ---
 
-### Claude Desktop Integration
+### Step 4: Verify in Gemini Enterprise Chat
 
-To connect Claude Desktop to your remote MCP server, configure your `claude_desktop_config.json`:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-Add the server configuration using `mcp-remote` bridge or direct SSE:
-
-```json
-{
-  "mcpServers": {
-    "enterprise-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://<YOUR-HOST>/sse",
-        "--header",
-        "Authorization: Bearer your-strong-secret-mcp-token-here"
-      ]
-    }
-  }
-}
-```
+Once registered, users can invoke the MCP tools directly from Gemini Enterprise chat prompts:
+- *"What is the server system status?"* &rarr; invokes `get_system_info`
+- *"Calculate 42 multiplied by 18"* &rarr; invokes `calculate`
+- *"Echo test message"* &rarr; invokes `echo`
 
 ---
 
-### Cursor / IDE Integration
+## Local Development & Testing
 
-For IDEs supporting MCP (such as Cursor, Windsurf, or VS Code MCP extensions):
-
-Add the server configuration to your workspace `.cursor/mcp.json` or global MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "enterprise-mcp": {
-      "url": "https://<YOUR-HOST>/sse",
-      "headers": {
-        "Authorization": "Bearer your-strong-secret-mcp-token-here"
-      }
-    }
-  }
-}
-```
-
----
-
-### MCP Inspector
-
-You can inspect, debug, and test tools interactively using the official MCP Inspector:
+### 1. Install & Run Locally
 
 ```bash
-npx @modelcontextprotocol/inspector
+# Install dependencies
+npm install
+
+# Run with hot-reload
+npm run dev
 ```
 
-In the Inspector UI:
-- **Transport Type**: `SSE`
-- **URL**: `http://localhost:3000/sse?token=your-strong-secret-mcp-token-here` (or pass headers via the configuration dialog).
-- Click **Connect** to explore tools, send test arguments, and view JSON-RPC request/response payloads.
+### 2. Verify Endpoints with `curl`
 
----
-
-## API & Endpoint Reference
-
-| Endpoint | HTTP Method | Auth Required | Description |
-| :--- | :--- | :--- | :--- |
-| [`/health`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/server.ts#L20-L27) | `GET` | No | Unauthenticated health status, session count, and service info. |
-| [`/sse`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/server.ts#L30-L51) | `GET` | **Yes** | Establishes the Server-Sent Events (SSE) streaming transport. |
-| [`/messages`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/server.ts#L54-L74) | `POST` | **Yes** | Receives JSON-RPC client messages for an active session (`?sessionId=...`). |
-
-### Authentication Schemes Supported
-
-The [`authenticateRequest`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/auth.ts#L10-L54) middleware checks credentials in the following order:
-
-1. **Bearer Token**: `Authorization: Bearer <AUTH_TOKEN>`
-2. **API Key Header**: `x-api-key: <AUTH_TOKEN>`
-3. **Query Parameter**: `?token=<AUTH_TOKEN>`
-
-### Error Codes
-
-| Status Code | Reason | Cause / Resolution |
-| :--- | :--- | :--- |
-| `401 Unauthorized` | Missing token | Provide credentials via `Authorization` header, `x-api-key`, or `?token=`. |
-| `403 Forbidden` | Invalid token | Provided token does not match the configured `AUTH_TOKEN`. |
-| `404 Not Found` | Session expired / invalid | The `sessionId` provided to `/messages` is invalid or the SSE connection closed. |
-| `500 Internal Error` | Server misconfiguration | `AUTH_TOKEN` is not set on the server while `REQUIRE_AUTH=true`. |
-
----
-
-## Built-in Tools
-
-The server ships with sample tools defined in [`src/mcp.ts`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts):
-
-### 1. `get_system_info`
-Retrieves server status, Node.js version, uptime, and environment.
-- **Parameters**: None
-- **Sample Output**:
-  ```json
-  {
-    "status": "healthy",
-    "uptimeSeconds": 1420,
-    "timestamp": "2026-08-11T16:00:00.000Z",
-    "nodeVersion": "v22.13.4",
-    "environment": "production"
-  }
+- **Health Check**:
+  ```bash
+  curl -i http://localhost:3000/health
   ```
 
-### 2. `echo`
-Echoes back the provided message.
-- **Parameters**:
-  - `message` (`string`): The text to echo.
-- **Sample Output**: `[MCP Server Echo]: Hello World`
+- **SSE Stream with Google OAuth Access Token**:
+  ```bash
+  curl -N -i -H "Authorization: Bearer $(gcloud auth print-access-token)" http://localhost:3000/sse
+  ```
 
-### 3. `calculate`
-Performs basic arithmetic operations.
-- **Parameters**:
-  - `operation` (`"add" | "subtract" | "multiply" | "divide"`): Arithmetic operation.
-  - `a` (`number`): First operand.
-  - `b` (`number`): Second operand.
-- **Sample Output**: `Calculation result: 10 multiply 5 = 50`
+- **Testing with Authentication Disabled (Local Only)**:
+  ```bash
+  REQUIRE_AUTH=false npm run dev
+  curl -N -i http://localhost:3000/sse
+  ```
 
 ---
 
-## Extending & Adding Custom Tools
+## Built-in Actions & Tools Reference
 
-To add new custom tools, open [`src/mcp.ts`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts) and register them on the [`McpServer`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts#L7-L99) instance using [`zod`](https://zod.dev) for parameter schemas:
+Actions are registered in [`src/mcp.ts`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts) using [`server.registerTool(...)`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts#L14-L105):
+
+| Action Name | Display Title | Parameters | Description |
+| :--- | :--- | :--- | :--- |
+| `calculate` | **Calculate** | `operation: string`, `a: number`, `b: number` | Performs arithmetic calculations (addition, subtraction, multiplication, division). |
+| `get_system_info` | **Get System Info** | None | Returns server health status, Node.js version, uptime, and environment. |
+| `echo` | **Echo Message** | `message: string` | Echoes the input message back to the client. |
+
+---
+
+## Adding Custom Tools
+
+To add new tools for Gemini Enterprise, edit [`src/mcp.ts`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts) and register them with [`server.registerTool`](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/src/mcp.ts#L14-L96):
 
 ```typescript
 import { z } from "zod";
 
-export function createMcpServer(): McpServer {
-  const server = new McpServer({
-    name: "Enterprise Node MCP Server",
-    version: "1.0.0",
-  });
-
-  // Register a custom tool
-  server.registerTool(
-    "search_database",
-    {
-      description: "Query company internal knowledge base or database",
-      inputSchema: {
-        query: z.string().describe("Search query string"),
-        limit: z.number().optional().default(5).describe("Max results to return"),
-      },
+server.registerTool(
+  "lookup_customer",
+  {
+    title: "Lookup Customer",
+    description: "Lookup customer details by account ID",
+    inputSchema: {
+      customerId: z.string().describe("The unique customer account ID"),
     },
-    async ({ query, limit }) => {
-      // Your custom business logic here (e.g. database query, API call)
-      const results = [`Result 1 for "${query}"`, `Result 2 for "${query}"`].slice(0, limit);
+  },
+  async ({ customerId }) => {
+    // Custom business logic / database query
+    const data = { id: customerId, name: "Acme Corp", tier: "Enterprise" };
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(results, null, 2),
-          },
-        ],
-      };
-    }
-  );
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+    };
+  }
+);
+```
 
-  return server;
-}
+After updating tools, redeploy to Cloud Run:
+```bash
+gcloud run deploy sei-mcp-server --source .
 ```
 
 ---
 
-## Troubleshooting & FAQ
+## Troubleshooting
 
-### 1. `401 Unauthorized` or `403 Forbidden`
-- Ensure that `AUTH_TOKEN` is set in your Cloud Run or local `.env` environment variables.
-- Verify that your client sends `Authorization: Bearer <AUTH_TOKEN>` or the `x-api-key` header with matching case and exact value.
-
-### 2. SSE Connection Drops or Times Out
-- When running behind Cloud Run or Load Balancers, ensure connection timeout is appropriately configured (`--timeout 300` or higher).
-- Cloud Run natively supports HTTP/2 and Server-Sent Events streaming. Ensure response buffering is disabled on intermediate reverse proxies.
-
-### 3. Session Expired (`404 Session not found`)
-- SSE sessions are ephemeral and kept in-memory. If the Cloud Run container restarts or scales to a new instance, the client must re-establish the `/sse` stream.
-- For high-availability multi-instance setups, ensure session affinity is configured on the Load Balancer or use a single minimum instance (`--min-instances 1`).
+- **`401 Unauthorized` / `403 Forbidden`**:
+  - `401 Unauthorized`: Missing `Authorization: Bearer <token>` header in the request.
+  - `403 Forbidden`: The OAuth 2.0 token is invalid, expired, or failed audience verification against `OAUTH_CLIENT_ID`. Verify that the OAuth client credentials in Gemini Enterprise match the GCP project settings.
+- **Connection Timeout**:
+  Ensure the Cloud Run service `--timeout` is set to `300` seconds or higher to support long-lived Server-Sent Events connections.
+- **Health Check Endpoint**:
+  Load balancers and cloud probes can monitor `/health` (unauthenticated, returns HTTP `200 OK`).
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](file:///usr/local/google/home/vieiravitor/workspace/opensource/sei-mcp/LICENSE).
+

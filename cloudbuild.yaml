@@ -29,11 +29,11 @@ steps:
       - '${_REGION}'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated' # Allows public HTTPS access; Auth header is enforced by server code
+      - '--allow-unauthenticated'
       - '--port'
       - '3000'
       - '--set-env-vars'
-      - 'REQUIRE_AUTH=true,AUTH_TOKEN=${_AUTH_TOKEN}'
+      - 'NODE_ENV=production'
 
 # Images to be stored in registry
 images:
@@ -43,7 +43,6 @@ images:
 substitutions:
   _SERVICE_NAME: 'sei-mcp-server'
   _REGION: 'southamerica-east1'
-  _AUTH_TOKEN: 'gemini-enterprise-secret-123'
   _TAG: 'latest'
 
 options:

@@ -3,8 +3,11 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# Ensure public npm registry is used
+RUN npm config set registry https://registry.npmjs.org/
+
 # Copy package files and install dependencies
-COPY package*.json ./
+COPY .npmrc* package*.json ./
 RUN npm ci
 
 # Copy source code and build
@@ -17,9 +20,12 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
+# Ensure public npm registry is used
+RUN npm config set registry https://registry.npmjs.org/
+
 # Copy built artifacts and production dependencies
-COPY package*.json ./
-RUN npm ci --only=production
+COPY .npmrc* package*.json ./
+RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
 

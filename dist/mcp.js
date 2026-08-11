@@ -8,9 +8,10 @@ export function createMcpServer() {
         name: "Enterprise Node MCP Server",
         version: "1.0.0",
     });
-    // Tool 1: System info & health
+    // Tool 1: System info & health action
     server.registerTool("get_system_info", {
-        description: "Retrieve server status, node version, and system runtime info",
+        title: "Get System Info",
+        description: "Retrieves server health status, Node.js runtime version, system uptime, and environment.",
     }, async () => {
         const info = {
             status: "healthy",
@@ -28,11 +29,12 @@ export function createMcpServer() {
             ],
         };
     });
-    // Tool 2: Echo tool
+    // Tool 2: Echo message action
     server.registerTool("echo", {
-        description: "Returns the provided string back to the user",
+        title: "Echo Message",
+        description: "Echoes a message string back to the user. Useful for connectivity verification.",
         inputSchema: {
-            message: z.string().describe("Message to echo"),
+            message: z.string().describe("The message string to echo back"),
         },
     }, async ({ message }) => {
         return {
@@ -44,13 +46,16 @@ export function createMcpServer() {
             ],
         };
     });
-    // Tool 3: Mathematical calculator tool
+    // Tool 3: Mathematical calculator action
     server.registerTool("calculate", {
-        description: "Performs arithmetic operations (add, subtract, multiply, divide)",
+        title: "Calculate",
+        description: "Performs arithmetic calculations (addition, subtraction, multiplication, division). Use this action whenever a user asks to calculate, compute, add, subtract, multiply, or divide numbers.",
         inputSchema: {
-            operation: z.enum(["add", "subtract", "multiply", "divide"]).describe("Operation type"),
-            a: z.number().describe("First number"),
-            b: z.number().describe("Second number"),
+            operation: z
+                .enum(["add", "subtract", "multiply", "divide"])
+                .describe("The arithmetic operation to execute: 'add', 'subtract', 'multiply', or 'divide'"),
+            a: z.number().describe("The first number (left operand)"),
+            b: z.number().describe("The second number (right operand)"),
         },
     }, async ({ operation, a, b }) => {
         let result;

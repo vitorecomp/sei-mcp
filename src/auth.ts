@@ -1,54 +1,73 @@
 import { Request, Response, NextFunction } from "express";
+import { OAuth2Client } from "google-auth-library";
+
+const TOOLS_CALL_METHOD = "tools/call";
 
 /**
- * Express middleware to validate authentication credentials for MCP endpoint requests.
- * Supports:
- *  1. Header: `Authorization: Bearer <token>`
- *  2. Header: `x-api-key: <token>`
- *  3. Query param: `?token=<token>` (useful for browsers / native EventSource clients)
+ * Middleware to enforce OAuth on MCP requests following the Google Chrome Enterprise Premium MCP pattern:
+ * 1. Tool discovery requests (`initialize`, `tools/list`, etc.) are permitted without blocking discovery,
+ *    allowing Gemini Enterprise "Reload custom actions" to always succeed.
+ * 2. Tool execution requests (`tools/call`) require authentication if OAuth is enabled.
  */
-export function authenticateRequest(req: Request, res: Response, next: NextFunction): void {
-  const requireAuth = process.env.REQUIRE_AUTH !== "false";
-  if (!requireAuth) {
+export async function oauthMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const isDev =
+    process.env.NODE_ENV === "dev" ||
+    process.env.NODE_ENV === "development" ||
+    process.env.ENV === "dev";
+
+  const oauthEnabled = process.env.OAUTH_ENABLED === "true" || (!isDev && process.env.OAUTH_ENABLED !== "false");
+
+  // Only enforce OAuth for actual tool execution calls if enabled
+  if (!oauthEnabled || !req.body || req.body.method !== TOOLS_CALL_METHOD) {
     return next();
   }
 
-  const configuredToken = process.env.AUTH_TOKEN;
-  if (!configuredToken) {
-    console.warn("⚠️ AUTH_TOKEN is not configured in environment. Rejecting request.");
-    res.status(500).json({ error: "Server authentication misconfigured." });
-    return;
-  }
-
-  // Extract token from multiple supported locations
-  const authHeader = req.headers["authorization"];
-  let token: string | undefined;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7).trim();
-  } else if (req.headers["x-api-key"]) {
-    token = req.headers["x-api-key"] as string;
-  } else if (typeof req.query.token === "string") {
-    token = req.query.token;
-  }
-
-  if (!token) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({
-      error: "Unauthorized",
-      message: "Missing authentication token. Provide Authorization header (Bearer <token>) or x-api-key.",
+      jsonrpc: "2.0",
+      error: {
+        code: -32001,
+        message: "Authentication required. Please provide a Bearer token in the Authorization header.",
+      },
+      id: req.body?.id || null,
     });
     return;
   }
 
-  // Token comparison (simple secret token validation)
-  if (token !== configuredToken) {
-    res.status(403).json({
-      error: "Forbidden",
-      message: "Invalid authentication token.",
-    });
-    return;
-  }
+  const token = authHeader.substring(7).trim();
+  const audience = process.env.OAUTH_CLIENT_ID || process.env.GOOGLE_OAUTH_AUDIENCE;
 
-  // Verification succeeded
-  next();
+  try {
+    const auth = new OAuth2Client();
+    const tokenInfo = await auth.getTokenInfo(token);
+
+    if (audience && tokenInfo.aud !== audience) {
+      console.warn(`⚠️ Token audience mismatch: ${tokenInfo.aud} vs ${audience}`);
+      res.status(403).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: `Invalid audience: expected ${audience}`,
+        },
+        id: req.body?.id || null,
+      });
+      return;
+    }
+
+    // Attach verified user info to request
+    (req as any).user = tokenInfo;
+    return next();
+  } catch (error: any) {
+    console.error("Error verifying OAuth token:", error?.message || error);
+    res.status(401).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32001,
+        message: "Invalid or expired OAuth token.",
+        data: error?.message,
+      },
+      id: req.body?.id || null,
+    });
+  }
 }

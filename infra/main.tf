@@ -19,7 +19,6 @@ resource "google_compute_region_network_endpoint_group" "serverless_neg" {
 resource "google_compute_backend_service" "mcp_backend" {
   name                  = "${var.cloud_run_service_name}-backend"
   protocol              = "HTTP"
-  port_name             = "http"
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
   backend {

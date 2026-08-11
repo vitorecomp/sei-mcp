@@ -12,3 +12,8 @@ output "mcp_sse_endpoint_http" {
   value       = "http://${google_compute_global_address.lb_ip.address}/sse"
   description = "HTTP SSE endpoint to use in Gemini Enterprise / MCP clients"
 }
+
+output "mcp_sse_endpoint_https" {
+  value       = var.enable_ssl && var.domain_name != "" ? "https://${var.domain_name}/sse" : null
+  description = "HTTPS SSE endpoint to use in Gemini Enterprise when custom domain and SSL are enabled"
+}
