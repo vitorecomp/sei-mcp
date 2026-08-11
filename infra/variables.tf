@@ -16,7 +16,7 @@ variable "cloud_run_service_name" {
 }
 
 variable "enable_ssl" {
-  type        = boolean
+  type        = bool
   description = "Set to true to provision Google-managed SSL certificate for domain_name"
   default     = false
 }

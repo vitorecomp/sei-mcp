@@ -9,7 +9,9 @@ export function createMcpServer() {
         version: "1.0.0",
     });
     // Tool 1: System info & health
-    server.tool("get_system_info", "Retrieve server status, node version, and system runtime info", {}, async () => {
+    server.registerTool("get_system_info", {
+        description: "Retrieve server status, node version, and system runtime info",
+    }, async () => {
         const info = {
             status: "healthy",
             uptimeSeconds: Math.floor(process.uptime()),
@@ -27,8 +29,11 @@ export function createMcpServer() {
         };
     });
     // Tool 2: Echo tool
-    server.tool("echo", "Returns the provided string back to the user", {
-        message: z.string().describe("Message to echo"),
+    server.registerTool("echo", {
+        description: "Returns the provided string back to the user",
+        inputSchema: {
+            message: z.string().describe("Message to echo"),
+        },
     }, async ({ message }) => {
         return {
             content: [
@@ -40,10 +45,13 @@ export function createMcpServer() {
         };
     });
     // Tool 3: Mathematical calculator tool
-    server.tool("calculate", "Performs arithmetic operations (add, subtract, multiply, divide)", {
-        operation: z.enum(["add", "subtract", "multiply", "divide"]).describe("Operation type"),
-        a: z.number().describe("First number"),
-        b: z.number().describe("Second number"),
+    server.registerTool("calculate", {
+        description: "Performs arithmetic operations (add, subtract, multiply, divide)",
+        inputSchema: {
+            operation: z.enum(["add", "subtract", "multiply", "divide"]).describe("Operation type"),
+            a: z.number().describe("First number"),
+            b: z.number().describe("Second number"),
+        },
     }, async ({ operation, a, b }) => {
         let result;
         switch (operation) {
