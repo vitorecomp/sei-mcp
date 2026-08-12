@@ -1,0 +1,1104 @@
+---
+openapi: 3.0.3
+info:
+  title: SEI-Documentos API
+  description: |-
+    Esta API deve ser utilizada em conjunto com as seguintes APIs:
+    - [sei-processos](/wps/portal/integrador/catalogoApis/API/sei-processos) : API para funções relativas aos processos do SEI
+    - [sei-parametros](/wps/portal/integrador/catalogoApis/API/sei-parametros) : API para funções utilitárias do SEI
+
+    Veja também a documentação do sei-processos para entendimento da estrutura e funções dos processos e seus documentos.
+
+    Os documentos no SEI podem ser de dois tipos:
+
+    - Tipo R: Recebidos (ou Exernos): Arquivos, normalmente PDFs, que são incluidos via upload. O conteúdo pode ser enviado em partes caso seja maior que 10MB.
+    <br />Endpoint para upload: <i>POST /arquivos</i> e em seguida deve ser referenciado no endpoint <i>POST /documentos</i> para inclusão efetiva no documento.
+
+    - Tipo G: Gerados (ou Internos): Arquivos criados no SEI diretamente em HTML. Endpoint para criação: <i>POST /documentos</i>
+
+    Ambos devem ser convertidos em base64 antes da criação.
+
+    Para maiores detalhes, veja a documentação de cada endpoint abaixo. Nos casos em que o body é um json, os parâmetros podem ser verificados no link (aba) <b>schema</b>, ao lado da aba Example Value.
+  version: 1.0.6
+servers:
+- url: https://sei-documentos.api-hml.rota.sp.gov.br
+  description: Homologação
+security:
+- IdpSP: []
+paths:
+  /documentos:
+    post:
+      tags:
+      - Documentos
+      summary: Inclui documentos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Documento'
+        required: true
+      responses:
+        "200":
+          description: Inclusão realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InclusaoDocumentoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /documentos/fila:
+    post:
+      tags:
+      - Documentos
+      summary: Inclui documentos com utilização do Kafka
+      description: |
+        A utilização deste serviço permite ao cliente realizar a solicitação sem a necessidade de aguardar o processamento completo pelo SEI. Após o envio, a resposta com os dados do documento gerado será encaminhada posteriormente, de forma assíncrona, para o endereço IP informado no momento da requisição — funcionando como um callback.
+
+        Exemplo do retorno de sucesso para o callback:
+
+        ```json
+        {
+          "id": "3fa85f64-5717-4562-b3fc-2c963f66",
+          "timestamp": "2025-04-18T18:31:22.882",
+          "responseFor": {
+            "idDocumento": "string",
+            "documentoFormatado": "string",
+            "linkAcesso": "string"
+          }
+        }
+        ```
+
+
+        Exemplo do retorno de erro para o callback:
+
+        ```json
+        {
+          "id": "3fa85f64-5717-4562-b3fc-2c963f66",
+          "timestamp": "2025-04-18T18:31:22.882",
+          "responseFor": {
+              "status": 400,
+              "trace": "string",
+              "messages": [
+                "string"
+              ]
+            }
+          }
+        }
+        ```
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: X-linkRetorno
+        in: header
+        description: Endereço de callback da requisição do SEI
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentoFila'
+        required: true
+      responses:
+        "200":
+          description: Inclusão realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilaResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+      deprecated: true
+  /documentos/{protocoloDocumento}:
+    get:
+      tags:
+      - Documentos
+      summary: "Busca o documento informado. Solicite somente os complementos estritamente\
+        \ necessários (Andamentos, assinaturas, publicações e campos) para uma performance\
+        \ melhor e redução do tempo de resposta."
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloDocumento
+        in: path
+        description: Identificador do documento
+        required: true
+        schema:
+          type: string
+      - name: retornarAndamento
+        in: query
+        description: Sinalizador de retorno para andamento de geração
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+          example: "N"
+      - name: retornarAssinaturas
+        in: query
+        description: Sinalizador de retorno para assinaturas
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+          example: "N"
+      - name: retornarpublicacao
+        in: query
+        description: Sinalizador de retorno para publicação
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+          example: "N"
+      - name: retornarCampos
+        in: query
+        description: Sinalizador de retorno para campos do formulário
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+          example: "N"
+      responses:
+        "200":
+          description: Consulta realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaDocumentoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Documentos
+      summary: Deleta o documento informado
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloDocumento
+        in: path
+        description: Identificador do documento
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Exclusão realizada com sucesso
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /documentos/{protocoloDocumento}/cancelamento:
+    put:
+      tags:
+      - Documentos
+      summary: Cancelamento do documento
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloDocumento
+        in: path
+        description: Identificador do documento
+        required: true
+        schema:
+          type: string
+      - name: motivo
+        in: query
+        description: Motivo do cancelamento
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Cancelamento realizado com sucesso
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /arquivos:
+    post:
+      tags:
+      - Documentos
+      summary: Upload de arquivos anexos
+      description: |
+        A utilização deste serviço permite ao cliente realizar o upload de arquivos anexos externos (normalmente PDFs) de no máximo 10MB. Após o upload, é devolvido um ID que deve ser referenciado no campo idArquivo do POST /documentos para efetivar a inclusão no SEI.
+
+        Caso o arquivo seja maior que 10MB é necessário utilizar esse endpoint `/arquivos` em conjunto com o endpoint `/arquivos/conteudo` seguindo as orientações prescritas na documentação do segundo.
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Arquivo'
+        required: true
+      responses:
+        "200":
+          description: Inclusão realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArquivoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /arquivos/fila:
+    post:
+      tags:
+      - Documentos
+      summary: Upload de arquivos anexos
+      description: |
+        A utilização deste serviço permite ao cliente realizar a solicitação sem a necessidade de aguardar o processamento completo pelo SEI. Após o envio, a resposta com os dados do documento gerado será encaminhada posteriormente, de forma assíncrona, para o endereço IP informado no momento da requisição — funcionando como um callback.
+
+        Exemplo do retorno de sucesso para o callback:
+
+        ```json
+        {
+          "id": "3fa85f64-5717-4562-b3fc-2c963f66",
+          "timestamp": "2025-04-18T18:31:22.882",
+          "responseFor": {
+              "message": "Arquivo adicionado com sucesso, ID: 115"
+          }
+        }
+        ```
+
+        Exemplo do retorno de erro para o callback:
+
+        ```json
+        {
+          "id": "3fa85f64-5717-4562-b3fc-2c963f66",
+          "timestamp": "2025-04-18T18:31:22.882",
+          "responseFor": {
+              "status": 400,
+              "trace": "string",
+              "messages": [
+                "string"
+              ]
+            }
+          }
+        }
+        ```
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: X-linkRetorno
+        in: header
+        description: Endereço de callback da requisição do SEI
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArquivoFila'
+        required: true
+      responses:
+        "200":
+          description: Inclusão realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilaResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+      deprecated: true
+  /arquivos/conteudo:
+    post:
+      tags:
+      - Documentos
+      summary: Upload de arquivos anexos em partes
+      description: "Este endpoint permite o upload de arquivos maiores que 10MB (limite\
+        \ do IntegradorSP) de forma fragmentada em partes menores e em múltiplas requisiç\
+        ões. \n\nO arquivo deve ser previamente fragmentado no cliente em partes de\
+        \ até 5MB e convertido para base64 antes do envio.\n\n**Importante**: A primeira\
+        \ parte do arquivo deve obrigatoriamente ser enviada via POST `/arquivos`.\
+        \ O endpoint `/arquivos/conteudo` serve apenas para envio das partes subsequentes.\n\
+        \nExemplo:\n\nSupondo um arquivo 12MB os envios devem ser realizados na seguinte\
+        \ ordem:\n\nNOTA: Antes de tudo o arquivo deve ser dividido em partes até\
+        \ 5MB, posteriormente deve ser convertido **cada parte precisa estar convertida\
+        \ em base64**\n\n1- Via POST /arquivos (1ª. parte de 5MB)\n\n2- Via POST /arquivos/conteudo\
+        \ (2ª. parte de 5MB)\n\n3- Via POST /arquivos/conteudo (3ª. parte de 2MB)\n\
+        \nApós envio bem sucedido da última parte, o documento já pode ser gerado\
+        \ via POST /documentos, passando o ID do arquivo recebido na 1ª. requisiçã\
+        o no campo \"idArquivo\".\n   \n"
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArquivoConteudo'
+        required: true
+      responses:
+        "200":
+          description: Inclusão realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArquivoConteudoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /documentos/{protocoloFormatado}/anexos:
+    get:
+      tags:
+      - Documentos
+      summary: Download Arquivo Anexo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloFormatado
+        in: path
+        description: "Identificador do documento Formatado. Ex: 00000396"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Download realizada com sucesso
+          headers:
+            Content-Disposition:
+              schema:
+                description: Used only with `application/pdf` responses
+                type: string
+                example: inline; filename="nome.pdf"
+          content:
+            application/pdf:
+              schema:
+                format: binary
+                type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /documentos/{protocoloFormatado}/conteudo:
+    get:
+      tags:
+      - Documentos
+      summary: Consulta Conteúdo do documento em base64
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloFormatado
+        in: path
+        description: "Identificador do documento Formatado. Ex: 00000396"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Consulta realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConteudoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /emails:
+    post:
+      tags:
+      - Mensagens
+      summary: Envia e-mails
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Email'
+        required: true
+      responses:
+        "200":
+          description: Envio realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+components:
+  schemas:
+    Email:
+      type: object
+      properties:
+        protocoloProcedimento:
+          description: "Número do processo visível para o usuário, exemplo = 12.1.000000077-4"
+          type: string
+        de:
+          description: Endereço do remetente
+          type: string
+        para:
+          description: Endereços dos destinatários (separados por ponto e vírgula
+            “;”)
+          type: string
+        cco:
+          description: Endereços dos destinatários para envio com cópia oculta (separados
+            por ponto e vírgula “;”)
+          type: string
+        assunto:
+          description: Assunto da mensagem
+          type: string
+        mensagem:
+          description: Conteúdo da mensagem
+          type: string
+        idDocumentos:
+          type: array
+          items:
+            description: Conjunto de identificadores internos dos documentos do processo
+              que devem ser anexados no email
+            type: string
+    EmailResponse:
+      type: object
+      properties:
+        idDocumento:
+          description: "Id interno do documento no SEI, exemplo = 1140000000872"
+          type: string
+        documentoFormatado:
+          description: "Número do documento visível para o usuário, exemplo =  0003934"
+          type: string
+        linkAcesso:
+          description: Link para acesso ao documento
+          type: string
+    ConsultaDocumentoResponse:
+      type: object
+      properties:
+        idProcedimento:
+          description: "Id interno do processo no SEI, exemplo = 1210000000774"
+          type: string
+        procedimentoFormatado:
+          description: "Número do processo visível para o usuário, exemplo = 12.1.000000077-4"
+          type: string
+        idDocumento:
+          description: "Id interno do documento no SEI, exemplo = 1140000000872"
+          type: string
+        documentoFormatado:
+          description: "Número do documento visível para o usuário, exemplo = 0003934"
+          type: string
+        linkAcesso:
+          description: Link para acesso ao documento
+          type: string
+        nivelAcessoLocal:
+          description: 0 - público 1 - restrito 2 - sigiloso - Indica o nível de acesso
+            registrado no cadastro do documento.
+          type: string
+        nivelAcessoGlobal:
+          description: 0 - público 1 - restrito 2 - sigiloso - Indica o nível de acesso
+            registrado no cadastro do documento.
+          type: string
+        serie:
+          $ref: '#/components/schemas/Serie'
+        numero:
+          description: Número do documento. Para documentos gerados com numeração
+            infor-mada passar o número. Não enviar ou passar string vazia para documentos
+            gerados com numera-ção controlada pelo SEI. Para documentos externos informar
+            o número (o SEI não controla numeração de documentos externos)
+          type: string
+        nomeArvore:
+          description: Nome complementar a ser exibido na árvore de documentos do
+            processo
+          type: string
+        descricao:
+          description: Descrição do documento para documentos gerados. Não enviar
+            ou passar string vazia para documentos externos
+          type: string
+        data:
+          description: "Data do documento no formato DD/MM/AAAA, obrigatório para\
+            \ documentos externos. Não enviar ou passar string vazia para documentos\
+            \ gerados"
+          type: string
+        unidadeElaboradora:
+          $ref: '#/components/schemas/Unidade'
+        andamentoGeracao:
+          $ref: '#/components/schemas/Andamento'
+        assinaturas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assinatura'
+        publicacao:
+          $ref: '#/components/schemas/Publicacao'
+        campos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campo'
+    DocumentoFila:
+      allOf:
+      - $ref: '#/components/schemas/Documento'
+      - type: object
+        properties:
+          linkConteudo:
+            description: Endereço público do documento para realizar o download.
+            type: string
+    Documento:
+      type: object
+      properties:
+        tipo:
+          description: "G = documento gerado (conteúdo em HTML criado diretamente\
+            \ no SEI, enviar no campo <i>conteudo</i>) <br/>R = documento recebido\
+            \ ou externo (arquivo externo enviado via upload, normalmente pdf. Inserir\
+            \ via POST /arquivos e informar o id gerado no campo <i>idArquivo</i>)."
+          type: string
+        idProcedimento:
+          description: Identificador do processo onde o documento deve ser inserido.
+            Opcional se ProtocoloProcedimento informado.
+          type: string
+        protocoloProcedimento:
+          description: "Número do processo onde o documento deve ser inserido, visí\
+            vel para o usuário, exemplo 12.1.000000077-4. Opcional se IdProcedimento\
+            \ informado."
+          type: string
+        idSerie:
+          description: Identificador do tipo de documento no SEI (pode ser obtido
+            através do endpoint GET /series do sei-parametros). Atentar que existem
+            tipos que só podem ser externos e outros que só podem ser gerados
+          type: string
+        numero:
+          description: Número do documento. Para documentos gerados com numeração
+            informada passar o número. Não enviar ou passar string vazia para documentos
+            gerados com numeração controlada pelo SEI. Para documentos externos informar
+            o número (o SEI não controla numeração de documentos externos).
+          type: string
+        nomeArvore:
+          description: Nome complementar a ser exibido na árvore de documentos do
+            processo.
+          type: string
+        data:
+          description: "Data do documento, obrigatório para documentos externos. Nã\
+            o enviar ou passar string vazia para documentos gerados."
+          type: string
+        descricao:
+          description: Descrição do documento para documentos gerados. Não enviar
+            ou passar string vazia para documentos externos.
+          type: string
+        idTipoConferencia:
+          description: Identificador do tipo de conferência associada com o documento
+            externo.
+          type: string
+        sinArquivamento:
+          description: S/N – Sinalizador indica se o documento deve ser arquivado.
+          type: string
+        remetente:
+          $ref: '#/components/schemas/Remetente'
+        interessados:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interessado'
+        destinatarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Destinatario'
+        observacao:
+          description: Texto da observação da unidade.
+          type: string
+        nomeArquivo:
+          description: "Nome do arquivo, obrigatório para documentos externos. Nã\
+            o enviar ou passar string vazia para documentos gerados."
+          type: string
+        nivelAcesso:
+          description: "0 - público 1 - restrito - 2 sigiloso <br/>string vazia ou\
+            \ não informado: o documento assumirá o nível de acesso e hipótese legal\
+            \ sugeridos para o tipo do processo, conforme cadastro no SEI."
+          type: string
+        idHipoteseLegal:
+          description: Identificador da hipótese legal associada.
+          type: string
+        conteudo:
+          description: Conteúdo do arquivo codificado em Base64. Para documentos gerados
+            será o conteúdo da seção principal do editor HTML e para documentos externos
+            será o conteúdo do anexo.
+          type: string
+        conteudoMTOM:
+          description: Conteúdo textual ou binário do documento. Este campo somente
+            poderá ser utilizado para documentos externos. O sistema somente aceitará
+            requi-sições com um dos atributos preenchidos. Conteudo ou ConteudoMTOM.
+          type: string
+        idArquivo:
+          description: Identificador do arquivo (ver serviço adicionarArquivo).
+          type: string
+        campos:
+          description: Campos associados com o formulário (ver estrutura Campo).
+          type: array
+          items:
+            $ref: '#/components/schemas/Campo'
+        sinBloqueado:
+          description: S/N - bloqueando o documento não será possível excluí-lo ou
+            alterar seu conteúdo.
+          type: string
+    Remetente:
+      type: object
+      properties:
+        IdContato:
+          description: Identificador do participante
+          type: string
+        Cpf:
+          description: Cpf do participante
+          type: string
+        Cnpj:
+          description: Cnpj do participante em formato alfanumérico
+          type: string
+        sigla:
+          description: Sigla do participante
+          type: string
+        nome:
+          description: Nome do participante
+          type: string
+    Interessado:
+      type: object
+      properties:
+        IdContato:
+          description: Identificador do participante
+          type: string
+        Cpf:
+          description: Cpf do participante
+          type: string
+        Cnpj:
+          description: Cnpj do participante em formato alfanumérico
+          type: string
+        sigla:
+          description: Sigla do participante
+          type: string
+        nome:
+          description: Nome do participante
+          type: string
+    Destinatario:
+      type: object
+      properties:
+        IdContato:
+          description: Identificador do participante
+          type: string
+        Cpf:
+          description: Cpf do participante
+          type: string
+        Cnpj:
+          description: Cnpj do participante em formato alfanumérico.
+          type: string
+        sigla:
+          description: Sigla do participante
+          type: string
+        nome:
+          description: Nome do participante
+          type: string
+    Campo:
+      type: object
+      properties:
+        nome:
+          description: Nome do campo do formulário
+          type: string
+        valor:
+          description: Valor do campo do formulário
+          type: string
+    InclusaoDocumentoResponse:
+      type: object
+      properties:
+        idDocumento:
+          description: "Id interno do documento no SEI,exemplo = 1140000000872"
+          type: string
+        documentoFormatado:
+          description: "Número do documento visível para o usuário, exemplo =  0003934"
+          type: string
+        linkAcesso:
+          description: Link para acesso ao documento
+          type: string
+    ArquivoFila:
+      required:
+      - nome
+      - hash
+      - linkConteudo
+      type: object
+      properties:
+        nome:
+          description: "Nome do arquivo Ex: (teste.pdf)"
+          type: string
+        hash:
+          description: Hash MD5 do arquivo a informado no LinkConteudo.
+          type: string
+        linkConteudo:
+          description: Endereço público do documento para realizar o download.
+          type: string
+    Arquivo:
+      type: object
+      properties:
+        nome:
+          description: Nome do arquivo
+          type: string
+        tamanho:
+          description: Tamanho total do arquivo em bytes
+          type: string
+        hash:
+          description: MD5 do conteúdo total do arquivo
+          type: string
+        conteudo:
+          description: Conteúdo total ou parcial codificado em Base64
+          type: string
+    ArquivoConteudo:
+      type: object
+      properties:
+        idArquivo:
+          description: Id do arquivo retornado no endpoint `/arquivo`
+          type: string
+        conteudo:
+          description: Conteúdo total ou parcial codificado em Base64
+          type: string
+    ArquivoResponse:
+      type: object
+      properties:
+        idArquivo:
+          description: "Identificador do arquivo externo gerado no SEI. Após sucesso\
+            \ deste endpoint, o POST /documentos deverá ser executando passando no\
+            \ campo idArquivo este identificador para associá-lo a um documento."
+          type: string
+        message:
+          description: Mensagem informando sucesso da execução da inclusão.
+          type: string
+    ConteudoResponse:
+      type: object
+      properties:
+        idDocumento:
+          description: Identificador do documento
+          type: string
+        conteudo:
+          description: Conteúdo do documento convertido em base64
+          type: string
+    Serie:
+      type: object
+      properties:
+        idSerie:
+          description: Identificador do tipo de documento
+          type: string
+        nome:
+          description: Nome do tipo de documento
+          type: string
+        aplicabilidade:
+          description: T = Documentos internos e externos - I = documentos internos
+            - E = documentos externos - F = formulários
+          type: string
+    Unidade:
+      type: object
+      properties:
+        idUnidade:
+          description: Identificador da unidade
+          type: string
+        sigla:
+          description: Sigla da unidade
+          type: string
+        descricao:
+          description: Descrição da unidade
+          type: string
+        sinProtocolo:
+          description: S/N - indica se é uma unidade protocolo
+          type: string
+        sinArquivamento:
+          description: S/N - indica se é uma unidade arquivamento
+          type: string
+        sinOuvidoria:
+          description: S/N - indica se é uma unidade ouvidoria
+          type: string
+    Andamento:
+      type: object
+      properties:
+        idAndamento:
+          description: Identificador interno do andamento
+          type: string
+        idTarefa:
+          description: Identificador da tarefa associada
+          type: string
+        idTarefaModulo:
+          description: Identificador da tarefa de módulo
+          type: string
+        descricao:
+          description: Texto do andamento
+          type: string
+        dataHora:
+          description: Data/hora em que o andamento foi gerado
+          type: string
+        unidade:
+          $ref: '#/components/schemas/Unidade'
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        atributos:
+          type: array
+          items:
+            $ref: '#/components/schemas/AtributoAndamento'
+    Usuario:
+      type: object
+      properties:
+        idUsuario:
+          description: Identificador do usuário
+          type: string
+        sigla:
+          description: Sigla do usuário
+          type: string
+        nome:
+          description: Nome do usuário
+          type: string
+    AtributoAndamento:
+      type: object
+      properties:
+        nome:
+          description: Nome do atributo
+          type: string
+        valor:
+          description: Valor do atributo
+          type: string
+        idOrigem:
+          description: Identificador auxiliar associado com este atributo
+          type: string
+    Assinatura:
+      type: object
+      properties:
+        nome:
+          description: Nome do assinante
+          type: string
+        cargoFuncao:
+          description: Cargo ou função utilizado no momento da assinatura
+          type: string
+        dataHora:
+          description: Data/hora em que ocorreu a assinatura
+          type: string
+        idUsuario:
+          description: ID do usuário
+          type: string
+        idOrigem:
+          description: ID origem associado com o usuário no SIP
+          type: string
+        idOrgao:
+          description: ID do órgão do usuário
+          type: string
+        sigla:
+          description: Sigla do usuário
+          type: string
+    Publicacao:
+      type: object
+      properties:
+        idPublicacao:
+          description: Id interno da publicação
+          type: string
+        idDocumento:
+          description: Id interno do documento
+          type: string
+        staMotivo:
+          description: 1 = Publicação - 2 = Retificação - 3 = Republicação - 4 = Apostilamento
+          type: string
+        resumo:
+          description: Texto do resumo da publicação
+          type: string
+        idVeiculoPublicacao:
+          description: Id interno do veículo de publicação
+          type: string
+        nomeVeiculo:
+          description: Nome do veículo de publicação
+          type: string
+        staTipoVeiculo:
+          description: I = Interno - E = Externo - M = Modulo
+          type: string
+        numero:
+          description: Número da publicação
+          type: string
+        dataDisponibilizacao:
+          description: Data da disponibilização
+          type: string
+        dataPublicacao:
+          description: Data da publicação
+          type: string
+        estado:
+          description: A=Agendado ou P=Publicado
+          type: string
+        imprensaNacional:
+          $ref: '#/components/schemas/PublicacaoImprensaNacional'
+    PublicacaoImprensaNacional:
+      type: object
+      properties:
+        idVeiculo:
+          description: Id interno do veículo
+          type: string
+        siglaVeiculo:
+          description: Sigla do veículo (exemplo = DOU)
+          type: string
+        descricaoVeiculo:
+          description: Descrição do veículo (exemplo = Diário Oficial da União)
+          type: string
+        pagina:
+          description: Página da publicação
+          type: string
+        idSecao:
+          description: Id interno da seção
+          type: string
+        secao:
+          description: Seção da publicação
+          type: string
+        data:
+          description: Data da publicação
+          type: string
+    FilaResponse:
+      type: object
+      properties:
+        requestId:
+          description: "UUID retornado da solicitação request. \nEx: 3fa85f64-5717-4562-b3fc-2c963f66\n\
+            Esse identificador único será incluído posteriormente na resposta enviada\
+            \ via callback, permitindo correlacionar com a solicitação original e\
+            \ garantindo a rastreabilidade de todo o processo.\n"
+          type: string
+    ArquivoConteudoResponse:
+      type: object
+      properties:
+        status:
+          description: |
+            STATUS da gravação do conteudo pode ser 'OK' ou 'ERRO'.
+          type: string
+        message:
+          description: |
+            Possiveis mensagens:
+
+            Conteúdo do arquivo adicionado com sucesso. Arquivo ainda não finalizado.
+
+            ou
+
+            Conteúdo do arquivo finalizado com sucesso.
+
+            ou em caso de erro:
+
+            Não foi possível adicionar o conteúdo do arquivo. Erro: {mensagemDoErro}.
+          type: string
+  responses:
+    UnauthorizedError:
+      description: Access token é invalido ou expirado
+    erro400:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - "400"
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+    erro500:
+      description: Erro inesperado no serviço
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - "500"
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+  parameters:
+    xTraceIdSP:
+      name: X-TraceId-SP
+      in: header
+      description: Trace ID utilizado para o Rota.SP
+      required: true
+      schema:
+        type: string
+    xSiglaSistema:
+      name: X-SiglaSistema
+      in: header
+      description: Sigla do Sistema cadastrado no SEI para permitir utilização do
+        SOAP
+      required: true
+      schema:
+        type: string
+    xIdentificacaoServico:
+      name: X-IdentificacaoServico
+      in: header
+      description: Token de acesso do Sistema cadastrado no SEI
+      required: true
+      schema:
+        type: string
+    xIdUnidade:
+      name: X-IdUnidade
+      in: header
+      description: ID da unidade que executará o serviço no SEI
+      required: true
+      schema:
+        type: string
+    xRegional:
+      name: X-Regional
+      in: header
+      description: Informar a regional do município (Obrigatório para o sei-cidades)
+      required: false
+      schema:
+        type: string
+  securitySchemes:
+    IdpSP:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

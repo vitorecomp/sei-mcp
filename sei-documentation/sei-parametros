@@ -1,0 +1,1695 @@
+---
+openapi: 3.0.3
+info:
+  title: sei-parametros API
+  description: API de funções genéricas do sistema SEI
+  version: 1.0.4
+servers:
+- url: https://sei-parametros.api-hml.rota.sp.gov.br
+  description: Homologação
+- url: http://localhost:8080/sei-parametros
+  description: Teste Local
+security:
+- IdpSP: []
+tags:
+- name: cadastro
+  description: "Cadastros de órgãos, unidades e usuários do sistema SEI"
+- name: bloco
+  description: Blocos internos e de assinatura
+- name: úteis
+  description: Serviços uteis
+paths:
+  /unidades:
+    get:
+      tags:
+      - cadastro
+      summary: Lista unidades
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xRegional'
+      - name: IdTipoProcedimento
+        in: query
+        description: Id do tipo de Procedimento
+        required: false
+        schema:
+          type: string
+      - name: idSerie
+        in: query
+        description: Id do tipo de Documento (Serie documental)
+        required: false
+        schema:
+          type: string
+      - name: idOrgao
+        in: query
+        description: Id do Órgão
+        required: false
+        schema:
+          type: string
+      - name: siglaOrgao
+        in: query
+        description: Sigla do Órgão
+        required: false
+        schema:
+          type: string
+      - name: start
+        in: query
+        description: Recebe a página de inicio da paginação
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Recebe o limite de registros da pagina
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Unidades:
+                    type: array
+                    items:
+                      properties:
+                        idUnidade:
+                          description: Descrição da unidade
+                          type: string
+                        sigla:
+                          description: Sigla da unidade
+                          type: string
+                        descricao:
+                          description: Descrição da unidade
+                          type: string
+                        sinProtocolo:
+                          description: S/N - indica se é uma unidade de protocolo
+                          type: string
+                        sinArquivamento:
+                          description: S/N - indica se é uma unidade de arquivo
+                          type: string
+                        sinOuvidoria:
+                          description: S/N - indica se é uma unidade de ouvidoria
+                          type: string
+                        orgao:
+                          type: object
+                          properties:
+                            idOrgao:
+                              description: Código identificado do órgão
+                              type: string
+                            sigla:
+                              description: Sigla do órgão
+                              type: string
+                            descricao:
+                              description: Descrição do órgão
+                              type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /usuarios:
+    get:
+      tags:
+      - cadastro
+      summary: Lista usuarios
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idUsuario
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuarios:
+                    $ref: '#/components/schemas/usuarios'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /replica-usuario:
+    post:
+      tags:
+      - cadastro
+      summary: Replicar usuario
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/replicarUsuarioRequest'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ret:
+                    type: boolean
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /tipos-conferencia:
+    get:
+      tags:
+      - cadastro
+      summary: Lista tipos de conferência
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Tipos:
+                    type: array
+                    items:
+                      properties:
+                        idTipoConferencia:
+                          description: Identificador do tipo de conferência
+                          type: string
+                        descricao:
+                          description: Descrição do tipo de conferência
+                          type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /contatos:
+    get:
+      tags:
+      - cadastro
+      summary: Lista de contatos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idTipoContato
+        in: query
+        description: ID do tipo de contato
+        required: false
+        schema:
+          type: string
+      - name: paginaRegistros
+        in: query
+        description: "Quantidade de itens por página retornada. Se não informado,\
+          \ só traz um registro."
+        required: false
+        schema:
+          type: integer
+      - name: paginaAtual
+        in: query
+        description: Página a ser retornada (offset). Deve ser no mínimo 1.
+        required: false
+        schema:
+          type: string
+      - name: sigla
+        in: query
+        description: Sigla do usuário
+        required: false
+        schema:
+          type: string
+      - name: nome
+        in: query
+        description: Nome do usuário para pesquisa
+        required: false
+        schema:
+          type: string
+      - name: cpf
+        in: query
+        description: CPF do usuário para pesquisa
+        required: false
+        schema:
+          type: string
+      - name: matricula
+        in: query
+        description: Matricula do usuário para pesquisa
+        required: false
+        schema:
+          type: string
+      - name: idContatos
+        in: query
+        description: Lista de idContatos separados por vírgula para pesquisa
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/contato'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    post:
+      tags:
+      - cadastro
+      summary: Inclusão de contatos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        description: "Parâmetros para criação de contatos. Pode ser criado mais de\
+          \ um por vez. Se informado o idContato, vai processar como uma alteraçã\
+          o, senão será uma inclusão."
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/contatoBody'
+        required: true
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/contato'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /contatos/{idContato}:
+    delete:
+      tags:
+      - cadastro
+      summary: "Exclusão, Desativação e Reativação de contatos"
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idContato'
+      - $ref: '#/components/parameters/staOperacao'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/contato'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /blocos/{idBloco}:
+    get:
+      tags:
+      - bloco
+      summary: Lista Blocos de assinatura e internos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - name: sinRetornarProtocolos
+        in: query
+        description: Retorna os processos incluídos no bloco. S - Sim / N - Não (default)
+        required: true
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - bloco
+      summary: Exclui um Bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - name: sinRetornarProtocolos
+        in: query
+        description: Retorna os processos incluídos no bloco. S - Sim / N - Não (default)
+        required: true
+        schema:
+          default: "N"
+          enum:
+          - S
+          - "N"
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /blocos/{idBloco}/disponibilizacao:
+    post:
+      tags:
+      - bloco
+      summary: Disponibiliza bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - bloco
+      summary: Cancela disponibilização de bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /blocos/{idBloco}/documentos/{protocoloDocumento}:
+    post:
+      tags:
+      - bloco
+      summary: Inclui documento em um bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - $ref: '#/components/parameters/protocoloDocumento'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/anotacaoBody'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - bloco
+      summary: Remove documento de um bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - $ref: '#/components/parameters/protocoloDocumento'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /blocos/{idBloco}/processos/{protocoloProcedimento}:
+    post:
+      tags:
+      - bloco
+      summary: Inclui processo em um bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - $ref: '#/components/parameters/protocoloProcedimento'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/anotacaoBody'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - bloco
+      summary: Remove processo de um bloco
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/idBloco'
+      - $ref: '#/components/parameters/protocoloProcedimento'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bloco'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /cargos:
+    get:
+      tags:
+      - úteis
+      summary: Lista Cargos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idCargo
+        in: query
+        description: Retorna o cargo a partir de um idCargo informado
+        required: false
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/cargo'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /cidades:
+    get:
+      tags:
+      - úteis
+      summary: Lista Cidades
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idPais
+        in: query
+        description: Retorna as cidades a partir de um idPais informado
+        required: true
+        schema:
+          type: integer
+      - name: idEstado
+        in: query
+        description: Retorna as cidades a partir de um idEstado informado
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/cidade'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /estados:
+    get:
+      tags:
+      - úteis
+      summary: Lista estados
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idPais
+        in: query
+        description: Retorna os estados a partir de um idPais informado
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/estado'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /extensoes:
+    get:
+      tags:
+      - úteis
+      summary: Lista extensões permitidas
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idArquivoExtensao
+        in: query
+        description: Identificador interno de uma extensão de arquivo
+        required: false
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/extensao'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /feriados:
+    get:
+      tags:
+      - úteis
+      summary: Lista feriados
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idOrgao
+        in: query
+        description: Identificador do órgão associado com os feriados
+        required: true
+        schema:
+          type: integer
+      - name: dataInicial
+        in: query
+        description: Data inicial para filtro
+        required: true
+        schema:
+          type: integer
+      - name: dataFinal
+        in: query
+        description: Data final para filtro
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/feriado'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /paises:
+    get:
+      tags:
+      - úteis
+      summary: Lista países
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pais'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /series:
+    get:
+      tags:
+      - úteis
+      summary: Lista séries
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idTipoProcedimento
+        in: query
+        description: Identificador do tipo de procedimento
+        required: false
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/serie'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /hipoteses:
+    get:
+      tags:
+      - úteis
+      summary: Lista hipoteses Legais com nível de acesso
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: nivelAcesso
+        in: query
+        description: Identificador do nivel de acesso (1 - Restrito / 2 - Sigiloso)
+        required: false
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/hipotese'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /assuntos:
+    get:
+      tags:
+      - úteis
+      summary: Lista assuntos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: palavrasPesquisa
+        in: query
+        description: Recebe a palavra chave da pesquisa
+        required: false
+        schema:
+          type: string
+      - name: idAssunto
+        in: query
+        description: Recebe o Id assunto para detalhamento
+        required: false
+        schema:
+          type: string
+      - name: start
+        in: query
+        description: Recebe a página de inicio da paginação
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Recebe o limite de registros da paginação
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/assunto'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /textos-padrao:
+    get:
+      tags:
+      - úteis
+      summary: "Lista textos padrões de uma unidade, filtrando por palavra-chave no\
+        \ nome. Se nao informada a palavra-chave, traz tudo."
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: palavrasPesquisa
+        in: query
+        description: Recebe palavras chave da pesquisa
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/textoPadrao'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /textos-padrao/{idTextoPadrao}:
+    get:
+      tags:
+      - úteis
+      summary: Consulta o conteúdo do texto padrao especifico por ID
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idTextoPadrao
+        in: path
+        description: Id do texto padrao
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/conteudoTextoPadrao'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+components:
+  schemas:
+    contatoBody:
+      type: object
+      properties:
+        idContato:
+          description: "Se informado, será uma inclusão. Se não informado, será uma\
+            \ alteração"
+          type: string
+        idTipoContato:
+          description: Identificador do tipo de contato
+          type: string
+        sigla:
+          description: Sigla do contato
+          type: string
+        nome:
+          description: Nome do contato
+          type: string
+        nomeSocial:
+          description: Nome Social do Contato
+          type: string
+        staNatureza:
+          description: "F - Pessoa Física, J - Pessoa Jurídica"
+          type: string
+        idContatoAssociado:
+          description: Identificador do contato associado
+          type: string
+        nomeContatoAssociado:
+          description: Nome do contato associado
+          type: string
+        sinEnderecoAssociado:
+          description: S/N - indica se o endereço utilizado pelo contato é da Pessoa
+            Jurídica associada
+          type: string
+        cnpjAssociado:
+          description: CNPJ do contato associado em formato alfanumérico
+          type: string
+        endereco:
+          description: Dados de endereçamento do contato
+          type: string
+        complemento:
+          description: Dados de endereçamento do contato
+          type: string
+        bairro:
+          description: Dados de endereçamento do contato
+          type: string
+        idCidade:
+          description: Dados de endereçamento do contato
+          type: string
+        idEstado:
+          description: Dados de endereçamento do contato
+          type: string
+        idPais:
+          description: Dados de endereçamento do contato
+          type: string
+        cep:
+          description: Dados de endereçamento do contato
+          type: string
+        staGenero:
+          description: "F - Feminino, M - Masculino"
+          type: string
+        idCargo:
+          description: Identificador interno do cargo
+          type: string
+        expressaoCargo:
+          description: Cargo do contato (ex. Diretor)
+          type: string
+        expressaoTratamento:
+          description: Tratamento do contato (ex. Ao Senhor)
+          type: string
+        expressaoVocativo:
+          description: Vocativo do contato (ex. Senhor Diretor)
+          type: string
+        idCategoria:
+          type: string
+        funcao:
+          description: Funções exercidas para cada cargo
+          type: string
+        idTitulo:
+          description: "Título do atributo para exibição no formulário gerado no processo,\
+            \ ex.: Relação com a Justiça Federal"
+          type: string
+        cpf:
+          description: Número do CPF sem formatação
+          type: string
+        cnpj:
+          description: CNPJ do contato associado em formato alfanumérico
+          type: string
+        rg:
+          description: Número do RG
+          type: string
+        orgaoExpedidor:
+          description: Órgão expedidor
+          type: string
+        matricula:
+          description: Número de matrícula
+          type: string
+        matriculaOab:
+          description: Matrícula OAB do contato. Deve conter duas letras e pelo menos
+            um número
+          type: string
+        telefoneComercial:
+          description: Telefone Comercial
+          type: string
+        telefoneResidencial:
+          description: Telefone Residêncial
+          type: string
+        telefoneCelular:
+          description: Telefone Celular
+          type: string
+        conjuge:
+          type: string
+        dataNascimento:
+          description: Formato DD/MM/AAAA.
+          type: string
+        email:
+          description: E-mail
+          type: string
+        sitioInternet:
+          description: Sítio na internet
+          type: string
+        observacao:
+          description: Texto de observação associado
+          type: string
+        numeroPassaporte:
+          description: "Letras maiúsculas, números, espaço e hífen"
+          type: string
+        idPaisPassaporte:
+          description: País de emissão do passaporte
+          type: string
+        sinAtivo:
+          description: S/N - indica se o contato está ativo ou não no sistema
+          type: string
+    anotacaoBody:
+      type: object
+      properties:
+        anotacao:
+          description: Texto de anotação associado com o documento no bloco
+          type: string
+    usuarios:
+      type: object
+      properties:
+        Tipos:
+          type: array
+          items:
+            properties:
+              idUsuario:
+                description: Identificador do usuário
+                type: string
+              sigla:
+                description: Sigla do usuário
+                type: string
+              nome:
+                description: Nome do usuário
+                type: string
+    unidade:
+      type: object
+      properties:
+        idUnidade:
+          description: Identificador interno de uma unidade para filtro
+          type: string
+        sigla:
+          description: Sigla da unidade
+          type: string
+        descricao:
+          description: Descrição da unidade
+          type: string
+        sinProtocolo:
+          description: S/N - indica se é uma unidade de protocolo
+          type: string
+        sinArquivamento:
+          description: S/N - indica se é uma unidade de arquivo
+          type: string
+        sinOuvidoria:
+          description: S/N - indica se é uma unidade de ouvidoria
+          type: string
+    protocolo:
+      type: object
+      properties:
+        protocoloFormatado:
+          description: Número do processo ou documento visível para o usuário
+          type: string
+        identificacao:
+          description: "Nome do tipo de processo ou do tipo documento (seguido da\
+            \ numeração associ-ada se existir), ex.: Compra de Material e Contrataç\
+            ão de Serviços , Portaria 35"
+          type: string
+        assinaturas:
+          $ref: '#/components/schemas/assinatura'
+    assinatura:
+      type: object
+      properties:
+        nome:
+          description: Nome do assinante
+          type: string
+        cargoFuncao:
+          description: Cargo/função utilizado na assinatura
+          type: string
+        dataHora:
+          description: Data/hora da assinatura
+          type: string
+        idUsuario:
+          description: ID do usuário
+          type: string
+        idOrigem:
+          type: boolean
+        idOrgao:
+          description: ID do órgão do usuário
+          type: string
+        sigla:
+          description: Sigla do usuário
+          type: string
+    parametros:
+      type: object
+      properties:
+        idProcedimento:
+          description: "Identificador do processo onde o documento deve ser inserido,\
+            \ passar null quando na mesma operação estiver sendo gerado o processo.\
+            \ Opcional se ProtocoloProcedimento informado."
+          type: string
+    tipoConferencia:
+      type: object
+      properties:
+        idTipoConferencia:
+          description: Identificador do tipo de conferência
+          type: string
+        descricao:
+          description: Descrição do tipo de conferência
+          type: string
+    replicarUsuarioRequest:
+      type: object
+      properties:
+        idReplicacao:
+          type: string
+        usuario:
+          type: object
+          properties:
+            staOperacao:
+              type: string
+            idUsuario:
+              description: Identificador do usuário
+              type: string
+            idOrigem:
+              description: ID Origem associado com o usuário no SIP
+              type: string
+            idOrgao:
+              description: ID do órgão do usuário
+              type: string
+            sigla:
+              description: Sigla do usuário
+              type: string
+            nome:
+              description: Nome do usuário
+              type: string
+            cpf:
+              description: Número CPF do usuário
+              type: string
+            email:
+              description: E-mail
+              type: string
+            sinAtivo:
+              description: S/N - Sinalizador indica se o registro está ativo
+              type: string
+    contato:
+      type: object
+      properties:
+        idTipoContato:
+          description: Tipo do contato
+          type: string
+        nomeTipoContato:
+          description: Nome do tipo de contato
+          type: string
+        sigla:
+          description: Sigla do contato
+          type: string
+        nome:
+          description: Nome do contato
+          type: string
+        nomeSocial:
+          description: Nome Social do Contato
+          type: string
+        staNatureza:
+          description: F/J - Pessoa Física/Jurídica
+          type: string
+        idContatoAssociado:
+          description: Identificador do contato associado
+          type: string
+        nomeContatoAssociado:
+          description: Nome do contato associado
+          type: string
+        sinEnderecoAssociado:
+          description: S/N - indica se o contato utiliza ou não o endereço do contato
+            associado
+          type: string
+        cnpjAssociado:
+          description: CNPJ do contato associado em formato alfanumérico.
+          type: string
+        endereco:
+          description: Dados de endereçamento do contato
+          type: string
+        complemento:
+          description: Dados de endereçamento do contato
+          type: string
+        bairro:
+          description: Dados de endereçamento do contato
+          type: string
+        idCidade:
+          description: Dados de endereçamento do contato
+          type: string
+        nomeCidade:
+          description: Dados de endereçamento do contato
+          type: string
+        idEstado:
+          description: Dados de endereçamento do contato
+          type: string
+        siglaEstado:
+          description: Dados de endereçamento do contato
+          type: string
+        idPais:
+          description: Dados de endereçamento do contato
+          type: string
+        nomePais:
+          description: Dados de endereçamento do contato
+          type: string
+        cep:
+          description: Dados de endereçamento do contato
+          type: string
+        staGenero:
+          description: M/F - Masculino/Feminino
+          type: string
+        idCargo:
+          description: Identificador interno do cargo
+          type: string
+        expressaoCargo:
+          description: Descrição do cargo
+          type: string
+        expressaoTratamento:
+          description: Descrição do tratamento
+          type: string
+        expressaoVocativo:
+          description: Descrição do vocativo (ex. Senhor Diretor)
+          type: string
+        cpf:
+          description: Número do CPF sem formatação
+          type: string
+        cnpj:
+          description: Número do CNPJ sem formatação em formato alfanumérico
+          type: string
+        rg:
+          description: Número do RG
+          type: string
+        orgaoExpedidor:
+          description: Órgão expedidor
+          type: string
+        numeroPassaporte:
+          description: Número do passaporte
+          type: string
+        idPaisPassaporte:
+          description: País de emissão do passaporte
+          type: string
+        nomePaisPassaporte:
+          description: Nome do País do passaporte
+          type: string
+        matricula:
+          description: Número de matrícula
+          type: string
+        matriculaOab:
+          description: Matrícula OAB
+          type: string
+        telefoneComercial:
+          description: Telefone Comercial
+          type: string
+        telefoneResidencial:
+          description: Telefone Residêncial
+          type: string
+        telefoneCelular:
+          description: Telefone celular
+          type: string
+        dataNascimento:
+          description: Data de nascimento
+          type: string
+        email:
+          description: E-mail
+          type: string
+        sitioInternet:
+          description: Sítio na internet
+          type: string
+        observacao:
+          description: Texto de observação associado
+          type: string
+        conjuge:
+          type: string
+        funcao:
+          description: Funções exercidas para cada cargo
+          type: string
+        idTitulo:
+          type: string
+        expressaoTitulo:
+          type: string
+        abreviaturaTitulo:
+          type: string
+        sinAtivo:
+          description: S/N - Sinalizador indica se o registro está ativo
+          type: string
+        idCategoria:
+          type: string
+    Email:
+      title: Email
+      required:
+      - to
+      - from
+      - subject
+      - content
+      - attachment
+      type: object
+      properties:
+        to:
+          title: To
+          default: ""
+          pattern: "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$"
+          type: string
+        from:
+          title: From
+          default: ""
+          pattern: "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$"
+          type: string
+        subject:
+          title: Subject
+          default: ""
+          pattern: ^(?!\s*$).+
+          type: string
+        content:
+          title: Content
+          default: ""
+          pattern: ^(?!\s*$).+
+          type: string
+        attachment:
+          title: Attachment
+          default: []
+          type: array
+          items:
+            title: Items
+            required:
+            - name
+            - type
+            - data
+            type: object
+            properties:
+              name:
+                title: Name
+                default: ""
+                pattern: ^(?!\s*$).+
+                type: string
+              type:
+                title: Type
+                default: ""
+                pattern: ^(?!\s*$).+
+                type: string
+              data:
+                title: Data
+                default: ""
+                pattern: "[^-A-Za-z0-9+/=]|=[^=]|={3,}$"
+                type: string
+    bloco:
+      type: object
+      properties:
+        idBloco:
+          description: Identificador do bloco
+          type: string
+        usuario:
+          $ref: '#/components/schemas/usuarios'
+        unidade:
+          $ref: '#/components/schemas/unidade'
+        descricao:
+          description: Descrição associada com o bloco
+          type: string
+        tipo:
+          description: A=Assinatura - R=Reunião - I=Interno
+          type: string
+        estado:
+          description: A=Aberto - D=Disponibilizado - B =Recebido - R=Retornado -
+            C=Concluído
+          type: string
+        sinPrioridade:
+          description: S/N – Indica se o bloco foi sinalizado como prioritário na
+            unidade
+          type: string
+        sinRevisao:
+          description: S/N – Indica se o bloco foi sinalizado como revisado na unidade
+          type: string
+        usuarioAtribuicao:
+          $ref: '#/components/schemas/usuarios'
+        unidadesDisponibilizacao:
+          description: Identificadores internos das unidades para disponibilização.
+            Passar um conjunto vazio caso o bloco não deva ser disponibilizado
+          type: string
+        protocolos:
+          $ref: '#/components/schemas/protocolo'
+    cargo:
+      type: object
+      properties:
+        Cargos:
+          type: array
+          items:
+            properties:
+              idCargo:
+                description: Identificador interno do cargo
+                type: string
+              expressaoCargo:
+                description: Identificador interno do cargo
+                type: string
+              expressaoTratamento:
+                description: Descrição do tratamento
+                type: string
+              expressaoVocativo:
+                description: Descrição do vocativo
+                type: string
+    cidade:
+      type: object
+      properties:
+        Cidades:
+          type: array
+          items:
+            properties:
+              idCidade:
+                description: Identificador da cidade
+                type: string
+              idEstado:
+                description: Identificador do estado
+                type: string
+              idPais:
+                description: Identificador do país
+                type: string
+              nome:
+                description: Nome da cidade
+                type: string
+              codigoIbge:
+                description: Código IBGE da cidade
+                type: string
+              sinCapital:
+                description: S/N - indica se a cidade é capital do estado
+                type: string
+              latitude:
+                description: Latitude da cidade
+                type: string
+              longitude:
+                description: Longitude da cidade
+                type: string
+    estado:
+      type: object
+      properties:
+        Estados:
+          type: array
+          items:
+            properties:
+              idEstado:
+                description: Identificador do estado
+                type: string
+              idPais:
+                description: Identificador do país
+                type: string
+              sigla:
+                description: Sigla do estado
+                type: string
+              nome:
+                description: Nome do estado
+                type: string
+              codigoIbge:
+                description: Código IBGE do estado
+                type: string
+    extensao:
+      type: object
+      properties:
+        Extensoes:
+          type: array
+          items:
+            properties:
+              idArquivoExtensao:
+                description: Identificador do registro
+                type: string
+              extensao:
+                description: Extensão de arquivo
+                type: string
+              descricao:
+                description: Descrição da extensão
+                type: string
+    feriado:
+      type: object
+      properties:
+        Feriados:
+          type: array
+          items:
+            properties:
+              data:
+                description: Data do feriado
+                type: string
+              descricao:
+                description: Descrição do feriado
+                type: string
+    pais:
+      type: object
+      properties:
+        Paises:
+          type: array
+          items:
+            properties:
+              idPais:
+                description: Identificador interno do país
+                type: string
+              nome:
+                description: Nome do país
+                type: string
+    serie:
+      type: object
+      properties:
+        Series:
+          type: array
+          items:
+            properties:
+              idSerie:
+                description: Identificador do tipo de documento
+                type: string
+              Nome:
+                description: Nome do tipo de documento
+                type: string
+              Aplicabilidade:
+                description: Aplicabilidade - T =Documentos internos e externos -
+                  I = Documentos internos - E = Documentos externos - F = Formulários
+                type: string
+    hipotese:
+      type: object
+      properties:
+        Hipoteses:
+          type: array
+          items:
+            properties:
+              idHipoteseLegal:
+                description: Identificador da hipótese legal associada
+                type: string
+              Nome:
+                description: Nome da hipótese legal
+                type: string
+              baseLegal:
+                description: Base legal associada
+                type: string
+              nivelAcesso:
+                description: "Nivel Acesso: 1 - Restrito - 2 - Sigiloso"
+                type: string
+    assunto:
+      type: object
+      properties:
+        Assuntos:
+          type: array
+          items:
+            properties:
+              codigoEstruturado:
+                description: "Código do Assunto, ex.: 00.01.01.01"
+                type: string
+              descricao:
+                description: Descrição do assunto
+                type: string
+    textoPadrao:
+      type: object
+      properties:
+        Textos:
+          type: array
+          items:
+            properties:
+              idTextoPadrao:
+                description: ID do texto padrão
+                type: string
+              nome:
+                description: Nome do texto padrão
+                type: string
+    conteudoTextoPadrao:
+      description: Conteúdo do texto padrão
+      type: string
+  responses:
+    UnauthorizedError:
+      description: Access token é invalido ou expirado
+    erro400:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - 400
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+    erro500:
+      description: Erro inesperado no serviço
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - 500
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+  parameters:
+    xTraceIdSP:
+      name: X-TraceId-SP
+      in: header
+      description: Trace ID utilizado para o Rota.SP
+      required: true
+      schema:
+        type: string
+    xSiglaSistema:
+      name: X-SiglaSistema
+      in: header
+      description: Sigla do Sistema cadastrado no SEI para permitir utilização do
+        SOAP
+      required: true
+      schema:
+        type: string
+    xIdentificacaoServico:
+      name: X-IdentificacaoServico
+      in: header
+      description: Token de acesso do Sistema cadastrado no SEI
+      required: true
+      schema:
+        type: string
+    xIdUnidade:
+      name: X-IdUnidade
+      in: header
+      description: ID da unidade que executará o serviço no SEI
+      required: true
+      schema:
+        type: string
+    xRegional:
+      name: X-Regional
+      in: header
+      description: Informar a regional do município (Obrigatório para o sei-cidades)
+      schema:
+        type: string
+    idBloco:
+      name: idBloco
+      in: path
+      description: ID do bloco de assinatura ou interno
+      required: true
+      schema:
+        type: string
+    idContato:
+      name: idContato
+      in: path
+      description: ID do contato
+      required: true
+      schema:
+        type: string
+    staOperacao:
+      name: staOperacao
+      in: query
+      description: "Operação a ser efetuada. Poderá ser: <ul><li>E – Excluir (se nã\
+        o for possível excluir será desativado)</li> <li>D – Desativar</li> <li>R\
+        \ – Reativar</li></ul>"
+      required: true
+      schema:
+        type: string
+    protocoloDocumento:
+      name: protocoloDocumento
+      in: path
+      description: código do protocolo do documento
+      required: true
+      schema:
+        type: string
+    protocoloProcedimento:
+      name: protocoloProcedimento
+      in: path
+      description: código do protocolo do processo
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    blocoAnotacao:
+      description: Body com anotacao
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/anotacaoBody'
+  securitySchemes:
+    IdpSP:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

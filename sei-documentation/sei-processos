@@ -1,0 +1,3066 @@
+---
+openapi: 3.0.3
+info:
+  title: sei-processos API
+  description: "Esta API deve ser utilizada em conjunto com as seguintes APIs:\n-\
+    \ sei-documentos : API para funções relativas aos documentos do SEI\n- sei-parametros\
+    \ : API para funções utilitárias do SEI\n\nEstas APIs são parte do portal <b>integrador.sp.gov.br</b>\
+    \ que unifica as APIs de diversos sistemas do Governo do Estado de São Paulo controlado\
+    \ pelo IDP.SP.\n\nO objetivo desta documentação é explicar brevemente os conceitos\
+    \ do SEI e os detalhes específicos da API. Para maiores detalhes sobre a interface\
+    \ do SEI, verifique no portal SEI a capacitação e o manual do usuário (https://www.portal.sei.sp.gov.br/sei).\n\
+    \n<h4>Collection de exemplo do Postman</h4>\n\nPara testes, utilize os exemplos\
+    \ da collection do postman que será fornecida com o e-mail inicial de instruçõ\
+    es da API. O environment de homologação com diversas variáveis importantes para\
+    \ execução do exemplo também será fornecido neste e-mail. Leia atentamente as\
+    \ instruções no Overview da collection.\n\n<h4>Autenticação e Headers adicionais</h4>\n\
+    \nOs headers abaixo são válidos também para o sei-documentos e sei-parametros.\n\
+    \nExiste a autenticação no IDP.SP e a chave de serviço no SEI.\n\nPara autenticar\
+    \ no IDP.SP, solicite as chaves à equipe do IDP.SP e utilize o endpoint de autenticaç\
+    ão fornecido. Em homologação, o endpoint é <i>https://rhsso.idp-hml.sp.gov.br/auth/realms/idpsp/protocol/openid-connect/token</i>.\
+    \ Os ambientes de homologação e produção tem chaves e urls diferentes.\n\nAo autenticar\
+    \ no IDP.SP, o endpoint devolve um token padrão Bearer, que deve ser passado no\
+    \ header \"Authorization\" de todos os requests seguintes com a literal 'Bearer\
+    \ ' na frente. No exemplo do postman, há um script que repassa esse token a todos\
+    \ os outros endpoints.\n\nPara acesso ao SEI, a equipe do SEI fornecerá a SiglaSistema\
+    \ e o token de identificação de serviço (Chave), que devem ser passados nos headers\
+    \ X-SiglaSistema e X-IdentificacaoServico respectivamente.\n\nOutros headers obrigató\
+    rios:\n\n- <i>X-TraceId-SP</i>: é uma identificação qualquer - de preferência\
+    \ única por request - para localizar na log do Integrador mensagens de erro relativas\
+    \ à esse request.\n\n- <i>X-IdUnidade</i>: é o ID da unidade que está realizando\
+    \ a ação no SEI. No andamento do processo, será identificada como a unidade que\
+    \ efetuou a operação, e o usuário será o informado no header  X-SiglaSistema.\n\
+    \n- <i>X-Regional</i>: é necessário somente para operações no sei-cidades. É a\
+    \ regional do município, não informar este header para o SEI do Governo do Estado.\n\
+    \n<h4>Conceitos básicos do SEI</h4>\n\nOs procesos podem ser classificados por:\
+    \ \n- Tipo (finalidade do processo) \n- Nivel de acesso (permissões de acesso:\
+    \ restrito à unidade e público). Caso o processo seja sigiloso ou restrito, é\
+    \ necessário informar também a hipótese legal (lei) que justifica o motivo do\
+    \ sigilo. A criação de processos sigilosos não são permitidos via API porque nenhum\
+    \ usuário terá credencial de acesso.\n\nVários documentos podem ser incluidos\
+    \ em um processo, e este pode ser tramitado (enviado) para outras unidades executarem\
+    \ ações no mesmo. \n\n\nNa API e na interface do SEI, algumas nomenclaturas sã\
+    o equivalentes:\n  - processo = procedimento\n  - numeroProtocolo = protocoloFormatado\n\
+    \  - serie = tipo de documento\n  - andamentos = histórico = atividades (descreve\
+    \ as ações realizadas no processo)\n  - tarefa = tipo de andamento (descreve qual\
+    \ o tipo de ação realizada no processo)\n\nO número do protocolo para os processos\
+    \ é um código formatado único, que pode ser pesquisado no SEI e utilizado nas\
+    \ telas para identificar o processo (Ex.: 03.110000147.0000001/2024-99). Não confundir\
+    \ com o idProcedimento, que é o id interno no banco de dados.\n\n<h4>Andamentos</h4>\n\
+    \nO andamento do processo é o histórico das operações realizadas, como a geraç\
+    ão, inclusão de documentos, envio para outra unidade, etc. É possível solicitar\
+    \ a lista de andamentos somente das operações principais ou com mais detalhes\
+    \ conforme o tipo solicitado.\n\nCada andamento possui um idTarefa, que identifica\
+    \ que tipo de andamento foi realizado e a descrição correspondente a este andamento.\
+    \ A mensagem pode conter partes variáveis, as quais denominamos atributos. Por\
+    \ exemplo:\n\n<table>\n<tr>\n<th>idTarefa<th>\n<th>Descrição<th>\n<th>Atributos<th>\n\
+    <tr>\n<tr>\n<td>5<td>\n<td>Assinado Documento @DOCUMENTO@ por @USUARIO@<td>\n\
+    <td>@DOCUMENTO@= 00133165, @USUARIO@= teste\n<tr>\n</table>\n\nNa API, é possí\
+    vel filtrar somente as tarefas desejadas passando uma lista de idTarefas.\n\n\
+    Para maiores detalhes, veja a documentação de cada endpoint abaixo. Nos casos\
+    \ em que o body é um json, os parâmetros podem ser verificados no link (aba) <b>schema</b>,\
+    \ ao lado da aba Example Value."
+  version: 1.0.8
+servers:
+- url: https://sei-processos.api-hml.rota.sp.gov.br
+  description: Homologação
+security:
+- IdpSP: []
+tags:
+- name: Processo
+  description: Operações referente ao processo
+paths:
+  /processos:
+    get:
+      tags:
+      - Processo
+      summary: Listar processos da unidade. Equivalente à página de Controle de Processos
+        do SEI (Mesa).
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/protocoloProcedimentoPath'
+      - name: usuario
+        in: query
+        description: Recebe o id do usuario de atribuição
+        schema:
+          type: string
+        example: "110000001"
+      - name: tipo
+        in: query
+        description: Informe 'G' para trazer os processos gerados ou 'R' para os recebidos
+        schema:
+          type: string
+        example: G
+      - name: sinRetornarCiencias
+        in: query
+        description: "Ao informar o valor 'S', retorna as ciências do processo. Caso\
+          \ seja diferente de 'S', não retorna.<p>Não solicite este parâmetro sem\
+          \ necessidade, o tempo de resposta será maior."
+        schema:
+          type: string
+        example: "N"
+      - name: sinRetornarMarcadores
+        in: query
+        description: "Ao informar o valor 'S', retorna os marcadores do processo.\
+          \ Caso seja diferente de 'S', não retorna.<p>Não solicite este parâmetro\
+          \ sem necessidade, o tempo de resposta será maior."
+        schema:
+          type: string
+        example: "N"
+      - name: sinRetornarAnotacoes
+        in: query
+        description: "Ao informar o valor 'S', retorna as anotações do processo. Caso\
+          \ seja diferente de 'S', não retorna.<p>Não solicite este parâmetro sem\
+          \ necessidade, o tempo de resposta será maior."
+        schema:
+          type: string
+        example: "N"
+      - name: sinRetornarStatus
+        in: query
+        description: "Ao informar o valor 'S', retorna os status do processo. Caso\
+          \ seja diferente de 'S', não retorna.<p>Não solicite este parâmetro sem\
+          \ necessidade, o tempo de resposta será maior."
+        schema:
+          type: string
+        example: "N"
+      - name: apenasMeus
+        in: query
+        description: "Ao informar o valor 'S', retorna apenas os processos do usuá\
+          rio"
+        schema:
+          type: string
+        example: "N"
+      - name: sinRetornarUltimaMovimentacao
+        in: query
+        description: "Ao informar o valor 'S', reotorna a quantidade de dias da ultima\
+          \ movimentacao no processo. Caso seja diferente de 'S', não retorna.<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          type: string
+        example: "N"
+      - $ref: '#/components/parameters/start'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/listaProcessos'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    post:
+      tags:
+      - Processo
+      summary: Geracao de processos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GerarProcedimentoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoGeracaoProcedimento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}:
+    get:
+      tags:
+      - Processo
+      summary: Consulta de processos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - $ref: '#/components/parameters/protocoloProcedimentoPath'
+      - name: sinRetornarAssuntos
+        in: query
+        description: "true/false - sinalizador para retorno dos assuntos do processo<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarInteressados
+        in: query
+        description: "true/false - sinalizador para retorno de interessados do processo<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarObservacoes
+        in: query
+        description: "true/false - sinalizador para retorno das observações das unidades<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarAndamentoGeracao
+        in: query
+        description: "true/false - sinalizador para retorno do andamento de geraçã\
+          o<p>Não solicite este parâmetro sem necessidade, o tempo de resposta será\
+          \ maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarAndamentoConclusao
+        in: query
+        description: "true/false - sinalizador para retorno do andamento de conclusã\
+          o<p>Não solicite este parâmetro sem necessidade, o tempo de resposta será\
+          \ maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarUltimoAndamento
+        in: query
+        description: "true/false - sinalizador para retorno do último andamento<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarUnidadesProcedimentoAberto
+        in: query
+        description: "true/false - sinalizador para retorno das unidades onde o processo\
+          \ se encontra aberto<p>Não solicite este parâmetro sem necessidade, o tempo\
+          \ de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarProcedimentosRelacionados
+        in: query
+        description: "true/false - sinalizador para retorno dos processos relacionados<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      - name: sinRetornarProcedimentosAnexados
+        in: query
+        description: "true/false - sinalizador para retorno dos processos anexados<p>Nã\
+          o solicite este parâmetro sem necessidade, o tempo de resposta será maior."
+        schema:
+          default: false
+          type: boolean
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcedimentosResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Processo
+      summary: Exclusao de processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/documentos:
+    get:
+      tags:
+      - Processo
+      summary: Busca os documentos do processo informado
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/start'
+      - $ref: '#/components/parameters/limit'
+      - name: SinRetornarStatus
+        in: query
+        description: Informar S/N para retornar status do documento.
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Consulta realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListarDocumentosProcessoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/conclusao:
+    post:
+      tags:
+      - Processo
+      summary: Conclusao de processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/envio:
+    post:
+      tags:
+      - Processo
+      summary: Enviar processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimentancaoProcessoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Uma ocorrência da estrutura RetornoConsultaProcedimento
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/sobrestamento:
+    post:
+      tags:
+      - Processo
+      summary: Sobrestar processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SobrestarRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Uma ocorrência da estrutura RetornoSobrestarProcesso
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Processo
+      summary: Remover sobrestamento processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/andamento:
+    post:
+      tags:
+      - Processo
+      summary: Lanca andamento em processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LancarAndamentoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Andamento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/andamentos:
+    get:
+      tags:
+      - Processo
+      summary: Lista andamentos do processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: query
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        schema:
+          type: string
+      - name: retornaAtributos
+        in: query
+        description: "informar S/N, caso deseje retornar os atributos"
+        schema:
+          type: string
+      - name: andamentos
+        in: query
+        description: Identificador interno do andamento
+        schema:
+          type: string
+      - name: tarefas
+        in: query
+        description: Identificador da tarefa associada
+        schema:
+          type: string
+      - name: tarefasModulos
+        in: query
+        description: Identificador da tarefa de módulo
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AndamentosResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /andamentos/completo:
+    get:
+      tags:
+      - Andamento
+      summary: Lista andamentos completo do processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: query
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        schema:
+          type: string
+      - name: retornaAtributos
+        in: query
+        description: "informar S/N, caso deseje retornar os atributos"
+        schema:
+          type: string
+      - name: andamentos
+        in: query
+        description: Identificador interno do andamento
+        schema:
+          type: string
+      - name: tarefas
+        in: query
+        description: Lista separada por vírgulas dos IDs das tarefas (tipo de atividade)
+          a serem retornada
+        schema:
+          type: string
+      - name: tipoHistorico
+        in: query
+        description: T - Histórico Total P - Histórico Parcial R - Histórico Resumido
+          Z - Histórico Personalizado
+        schema:
+          type: string
+      - name: IdUsuario
+        in: query
+        description: ID do usuário ou sistema gerador da atividade
+        schema:
+          type: string
+      - name: IdUnidadeOrigem
+        in: query
+        description: "Identificador da unidade de origem do processo, a qual foi realizada\
+          \ a operação."
+        schema:
+          type: string
+      - name: IdUnidadeDestino
+        in: query
+        description: "Identificador da unidade destino, a qual foi feita a ultima\
+          \ operação (Utilizado quando foi um tramite/envio)"
+        schema:
+          type: string
+      - name: filtroNomeTarefa
+        in: query
+        description: Texto a pesquisar na descrição da atividade
+        schema:
+          type: string
+      - name: filtroValorAtributoAndamento
+        in: query
+        description: Texto a pesquisar nos atributos da descrição da atividade. Não
+          funciona com todo tipo de atributo
+        schema:
+          type: string
+      - name: idTipoProcedimentoProtocolo
+        in: query
+        description: identificador do tipo de processo
+        schema:
+          type: string
+      - name: retornaDescricaoTipoProcesso
+        in: query
+        description: "informar S/N, caso deseje retornar a descrição do tipo de prcesso"
+        schema:
+          type: string
+      - name: dataInicio
+        in: query
+        description: "Data início da lista de atividades, formato DD/MM/AAAA"
+        schema:
+          type: string
+      - name: dataFim
+        in: query
+        description: "Data final da lista de atividades, formato DD/MM/AAAA"
+        schema:
+          type: string
+      - name: start
+        in: query
+        description: Recebe a página de inicio da paginação
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Recebe o limite de registros da paginação
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Executado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/andamentosCompletoResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento1}/relacionamento:
+    post:
+      tags:
+      - Processo
+      summary: Relaciona processos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento1
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelacionamentoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Processo
+      summary: Remover Relacionamento entre processos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento1
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      - name: protocoloProcedimento2
+        in: query
+        description: "Número do processo visível para o usuário, ex.: 1110000002932"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/reabertura:
+    post:
+      tags:
+      - Processo
+      summary: Reabertura de processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/disponibilizacaoAcessoExterno:
+    get:
+      tags:
+      - Processo
+      summary: Listar Disponibilizações de Acesso Externo de um processo específico
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/consultardisponibilizacoesResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    post:
+      tags:
+      - Processo
+      summary: Disponibilizações de Acesso Externo do Processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: Número do processo visível para o usuário
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/gerarDisponibilizacaoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/retornoGeracaoDisponibilizacao'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/disponibilizacaoAcessoExterno/{idAcessoExterno}:
+    delete:
+      tags:
+      - Processo
+      summary: Cancelar Disponibilização de Acesso Externo do Processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: Número do processo visível para o usuário
+        required: true
+        schema:
+          type: string
+      - name: idAcessoExterno
+        in: path
+        description: ID da disponibilização de acesso externo a cancelar
+        required: true
+        schema:
+          type: string
+      - name: Motivo
+        in: header
+        description: Motivo do cancelamento
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/anexacao:
+    post:
+      tags:
+      - Processo
+      summary: Anexação de processos
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnexarProcedimentoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoAnexacaoProcedimento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Processo
+      summary: Desanexação de processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo principal, visível para o usuário, ex.: 1210000000774"
+        required: true
+        schema:
+          type: string
+      - name: protocoloProcedimentoAnexado
+        in: query
+        description: Número do processo que será anexado ao processo principal
+        required: true
+        schema:
+          type: string
+      - name: motivo
+        in: query
+        description: Motivo do cancelamento
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoAnexacaoProcedimento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/bloqueio:
+    post:
+      tags:
+      - Processo
+      summary: Bloqueio de processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/atribuicao:
+    put:
+      tags:
+      - Processo
+      summary: Atribuicao de processo para usuario na unidade
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtribuicaoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/individual:
+    get:
+      tags:
+      - Processo
+      summary: Consulta de processos individuais por usuario interessado
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: idOrgaoProcedimento
+        in: query
+        description: Identificador do órgão do processo
+        required: true
+        schema:
+          type: string
+        example: 0
+      - name: idTipoProcedimento
+        in: query
+        description: Identificador do tipo do processo
+        required: true
+        schema:
+          type: string
+        example: 100000140
+      - name: idOrgaoUsuario
+        in: query
+        description: Identificador do órgão do usuário
+        required: true
+        schema:
+          type: string
+        example: 0
+      - name: siglaUsuario
+        in: query
+        description: Sigla do usuário
+        required: true
+        schema:
+          type: string
+        example: teste
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessoIndividualResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/prazo:
+    post:
+      tags:
+      - Processo
+      summary: Define ou Atualiza o controle de prazo de um processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              properties:
+                protocolosProcedimentos:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DefinirControlePrazoRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+    delete:
+      tags:
+      - Processo
+      summary: Remove o controle de prazo do processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/prazo/conclusao:
+    post:
+      tags:
+      - Processo
+      summary: Concluir controle de prazo do processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/marcador/definicao:
+    post:
+      tags:
+      - Processo
+      summary: Definir marcador ao processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefinirMarcadorRequest'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - parametros
+                type: object
+                properties:
+                  parametros:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{cpf}/atribuicao:
+    get:
+      tags:
+      - Processo
+      summary: consulta processos atribuidos ao usuário do sistema a partir do cpf
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xRegional'
+      - name: cpf
+        in: path
+        description: Número do cpf do usuário
+        required: true
+        schema:
+          type: string
+      - name: sinRetornarRecebidos
+        in: query
+        description: Identificador dos processos Recebidos.
+        required: false
+        schema:
+          type: boolean
+      - name: sinRetornarGerados
+        in: query
+        description: Identificador dos processos Gerados.
+        required: false
+        schema:
+          type: boolean
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/listarAtribuicoesResponse'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/tipo/listar:
+    get:
+      tags:
+      - Processo
+      summary: Lista os tipos de procedimento
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                properties:
+                  listaTiposProcedimento:
+                    type: array
+                    items:
+                      required:
+                      - TipoProcedimento
+                      properties:
+                        TipoProcedimento:
+                          $ref: '#/components/schemas/TipoProcedimento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+      deprecated: true
+  /processos/tipos:
+    get:
+      tags:
+      - Processo
+      summary: Lista os tipos de procedimento
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                properties:
+                  listaTiposProcedimento:
+                    type: array
+                    items:
+                      required:
+                      - TipoProcedimento
+                      properties:
+                        TipoProcedimento:
+                          $ref: '#/components/schemas/TipoProcedimento'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/marcadores:
+    get:
+      tags:
+      - Processo
+      summary: Listar marcadores da unidade
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                properties:
+                  marcador:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Marcador'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/andamentos/marcadores:
+    get:
+      tags:
+      - Processo
+      summary: Listar andamento do marcador
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      - name: marcadores
+        in: query
+        description: Identificador do marcador
+        required: false
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                properties:
+                  andamentoMarcador:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AndamentoMarcador'
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/nivelacesso:
+    put:
+      tags:
+      - Processo
+      summary: Alterar Nível acesso Processo
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ""
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarNivelAcessoProcesso'
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - message
+                type: object
+                properties:
+                  message:
+                    description: Retorna true
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+  /processos/{protocoloProcedimento}/recebimento:
+    post:
+      tags:
+      - Processo
+      summary: Recebe o processo na unidade
+      parameters:
+      - $ref: '#/components/parameters/xTraceIdSP'
+      - $ref: '#/components/parameters/xSiglaSistema'
+      - $ref: '#/components/parameters/xIdentificacaoServico'
+      - $ref: '#/components/parameters/xIdUnidade'
+      - $ref: '#/components/parameters/xRegional'
+      - name: protocoloProcedimento
+        in: path
+        description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - Enviado
+          content:
+            application/json:
+              schema:
+                required:
+                - status
+                - message
+                type: object
+                properties:
+                  status:
+                    description: OK / ERRO
+                    type: string
+                  message:
+                    description: Processo recebido com sucesso. / Não foi possível
+                      receber o processo.
+                    type: string
+        "400":
+          $ref: '#/components/responses/erro400'
+        "500":
+          $ref: '#/components/responses/erro500'
+components:
+  schemas:
+    MovimentancaoProcessoRequest:
+      required:
+      - protocoloProcedimento
+      - unidadesDestino
+      - sinManterAbertoUnidade
+      - sinRemoverAnotacao
+      - sinEnviarEmailNotificacao
+      - dataRetornoProgramado
+      - diasRetornoProgramado
+      - sinDiasUteisRetornoProgramado
+      - sinReabrir
+      type: object
+      properties:
+        unidadesDestino:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemUnidadeProcedimentoAberto'
+        sinManterAbertoUnidade:
+          description: true/false - sinalizador para manter aberto na unidade
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        sinRemoverAnotacao:
+          description: true/false - sinalizador para remover anotacao
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        sinEnviarEmailNotificacao:
+          description: true/false - sinalizador para enviar email notificado
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        dataRetornoProgramado:
+          description: Data para definição de Retorno Programado (passar nulo se não
+            for dese-jado)
+          type: string
+        diasRetornoProgramado:
+          description: Número de dias para o Retorno Programado (valor padrão nulo)
+          type: string
+        sinDiasUteisRetornoProgramado:
+          description: true/false - sinalizador para dias uteis do retorno programado
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        sinReabrir:
+          description: true/false - sinalizador para reabrir
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+    ProcedimentosResponse:
+      type: object
+      properties:
+        idProcedimento:
+          description: Id interno do processo no SEI
+          type: string
+          example: "100201"
+        procedimentoFormatado:
+          description: Número do processo visível para o usuário.
+          type: string
+          example: 03.110000147.0000001/2024-99
+        especificacao:
+          description: Especificação do processo
+          type: string
+          example: Especificação de exemplo do processo
+        linkAcesso:
+          description: Link para acesso ao documento
+          type: string
+          example: https://homologacao.sei.sp.gov.br/sei/processo_acesso_externo_consulta.php?id_acesso_externo=75778&infra_hash=ca7eb3b226edcee8d8a724e5536660f4
+        dataAutuacao:
+          description: Data de autuação do Processo no formato DD/MM/AAAA
+          type: string
+          example: 18/04/2024
+        nivelAcessoLocal:
+          description: Indica o nível de acesso registrado no cadastro do processo.
+            0 - público 1 - restrito   2 - sigiloso
+          type: string
+          example: "0"
+        nivelAcessoGlobal:
+          description: Indica o nível de acesso geral aplicado ao processo. 0 - público
+            1 - restrito   2 - sigiloso
+          type: string
+          example: "0"
+        TipoProcedimento:
+          type: array
+          items:
+            $ref: '#/components/schemas/TipoProcedimento'
+        andamentoGeracao:
+          description: 'Dados do andamento de geração '
+          type: object
+          properties:
+            descricao:
+              description: Texto do andamento
+              type: string
+              example: "Processo restrito gerado, Controle Interno (Art. 26, § 3º\
+                , da Lei nº 10.180/2001)"
+            dataHora:
+              description: Data/hora em que o andamento foi gerado no formato DD/MM/AAAA
+                HH:MM:SS
+              type: string
+              example: 18/04/2024 15:10:46
+            unidade:
+              $ref: '#/components/schemas/UnidadeProcesso'
+            usuario:
+              $ref: '#/components/schemas/Usuario'
+        andamentoConclusao:
+          description: Dados do andamento de conclusão (ver estrutura Andamento).
+            Não será devolvido caso o processo não esteja concluído.
+          type: object
+          properties:
+            descricao:
+              description: Texto do andamento
+              type: string
+              example: Conclusão do processo na unidade
+            dataHora:
+              description: Data/hora em que o andamento foi concluido no formato DD/MM/AAAA
+                HH:MM:SS
+              type: string
+              example: 30/04/2024 10:35:01
+            unidade:
+              $ref: '#/components/schemas/UnidadeProcesso'
+            usuario:
+              $ref: '#/components/schemas/Usuario'
+        ultimoAndamento:
+          description: Dados do último andamento.
+          type: object
+          properties:
+            descricao:
+              description: Texto do andamento
+              type: string
+              example: Conclusão do processo na unidade
+            dataHora:
+              description: Data/hora em que o andamento foi executado no formato DD/MM/AAAA
+                HH:MM:SS
+              type: string
+              example: 30/04/2024 10:35:01
+            unidade:
+              $ref: '#/components/schemas/UnidadeProcesso'
+            usuario:
+              $ref: '#/components/schemas/Usuario'
+        unidadesProcedimentoAberto:
+          type: array
+          items:
+            properties:
+              unidade:
+                $ref: '#/components/schemas/UnidadeProcesso'
+              usuarioAtribuicao:
+                $ref: '#/components/schemas/Usuario'
+        assuntos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemAssunto'
+        interessados:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemInteressado'
+        observacoes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemObservacao'
+        procedimentosRelacionados:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemProcedimento'
+        procedimentosAnexados:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemProcedimento'
+    GerarProcedimentoRequest:
+      required:
+      - procedimento
+      type: object
+      properties:
+        procedimento:
+          $ref: '#/components/schemas/Procedimento'
+        procedimentosRelacionados:
+          description: Conjunto com Ids de processos que devem ser relacionados automaticamente
+            com o novo processo
+          type: array
+          items:
+            type: string
+        unidadesEnvio:
+          description: Conjunto com Ids de unidades para envio do processo após a
+            geração. O processo ficará aberto na unidade geradora e nas unidades informadas
+            neste parâmetro.
+          type: array
+          items:
+            type: string
+        sinManterAbertoUnidade:
+          description: true/false - sinalizador indica se o processo deve ser mantido
+            aberto na unidade de origem (valor padrão true)
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        sinEnviarEmailNotificacao:
+          description: true/false - sinalizador indicando se deve ser enviado email
+            de aviso para as unidades destinatárias (valor padrão false)
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        dataRetornoProgramado:
+          description: Data para definição de Retorno Programado (valor padrão nulo)
+          type: string
+        diasRetornoProgramado:
+          description: Número de dias para o Retorno Programado (valor padrão nulo)
+          type: string
+        sinDiasUteisRetornoProgramado:
+          description: true/false - sinalizador indica se o valor passado no parâmetro
+            DiasRetornoProgramado corresponde a dias úteis ou não (valor padrão false)
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        idMarcador:
+          description: Identificador de um marcador da unidade para associação
+          type: string
+        textoMarcador:
+          description: Texto do marcador
+          type: string
+        dataControlePrazo:
+          description: Data para definição do Controle de Prazo (valor padrão nulo)
+          type: string
+        diasControlePrazo:
+          description: Número de dias para o Controle de Prazo (valor padrão nulo)
+          type: string
+        sinDiasUteisControlePrazo:
+          description: true/false - sinalizador indica se o valor passado no parâmetro
+            DiasControlePrazo corresponde a dias úteis ou não (valor padrão false)
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+    Procedimento:
+      required:
+      - idTipoProcedimento
+      - observacao
+      - nivelAcesso
+      type: object
+      properties:
+        idTipoProcedimento:
+          description: Identificador do tipo de processo no SEI (sugere-se que este
+            id seja armazenado em uma tabela de parâmetros do sistema cliente)
+          type: string
+          example: "123"
+        numeroProtocolo:
+          description: "Número do processo, se não for informado o sistema irá gerar\
+            \ um novo número automaticamente. Não utilizar se não for estritamente\
+            \ necessário."
+          type: string
+        dataAutuacao:
+          description: "Data de autuação do processo no formato DD/MM/AAAA, se nã\
+            o for informada o sistema utilizará a data atual. Somente utilizar se\
+            \ informar o número do protocolo."
+          type: string
+          example: 10/04/2025
+        especificacao:
+          description: Especificação do processo
+          type: string
+          example: Especificação de exemplo do processo
+        assuntos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assunto'
+        interessados:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interessado'
+        observacao:
+          description: "Texto da observação da unidade, se não houver omitir este\
+            \ parâmetro"
+          type: string
+          example: Observação qualquer da unidade.
+        nivelAcesso:
+          description: "0 - público / 1 - restrito / 2 - sigiloso / Null - O processo\
+            \ assumirá o nível de acesso e hipótese legal sugeridos para o tipo do\
+            \ processo, conforme seu cadastro no SEI."
+          type: string
+          example: "1"
+        idHipoteseLegal:
+          description: Identificador da hipótese legal associada. (Obrigatório se
+            o nível de Acesso for 1 - restrito)
+          type: string
+          example: "120"
+    Documento:
+      required:
+      - tipo
+      - idSerie
+      type: object
+      properties:
+        tipo:
+          description: G = documento gerado. R = documento recebido (externo)
+          enum:
+          - G
+          - R
+          type: string
+        idProcedimento:
+          description: "Identificador do processo onde o documento deve ser inserido,\
+            \ passar null quando na mesma operação estiver sendo gerado o processo.\
+            \ Opcional se ProtocoloProcedimento informado"
+          type: string
+          example: "100123"
+        protocoloProcedimento:
+          description: "Número do processo onde o documento deve ser inserido, visí\
+            vel para o usuário, ex: 12.1.000000077-4. Opcional se IdProcedimento informado."
+          type: string
+          example: ""
+        idSerie:
+          description: Identificador do tipo de documento no SEI (sugere-se que este
+            id seja armazenado em uma tabela auxiliar do sistema cliente)
+          type: string
+        numero:
+          description: Número do documento. Para documentos gerados com numeração
+            informada passar o número. Passar null para documentos gerados com numeração
+            controlada pelo SEI. Para documentos externos informar o número (o SEI
+            não controla numeração de documentos externos)
+          type: string
+        nomeArvore:
+          description: Nome complementar a ser exibido na árvore de documentos do
+            processo
+          type: string
+        data:
+          description: "Data do documento, obrigatório para documentos externos. Passar\
+            \ null para documentos gerados"
+          type: string
+        descricao:
+          description: Descrição do documento para documentos gerados. Passar null
+            para documentos externos
+          type: string
+        idTipoConferencia:
+          description: Identificador do tipo de conferência associada com o documento
+            externo
+          type: string
+        sinArquivamento:
+          description: true/false – Sinalizador indica se o documento deve ser arquivado
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+        remetente:
+          $ref: '#/components/schemas/Remetente'
+        interessado:
+          $ref: '#/components/schemas/Interessado'
+        destinatario:
+          $ref: '#/components/schemas/Destinatario'
+        observacao:
+          description: "Texto da observação da unidade, passar null se não existir"
+          type: string
+        nomeArquivo:
+          description: "Nome do arquivo, obrigatório para documentos externos. Passar\
+            \ null para documentos gerados."
+          type: string
+        nivelAcesso:
+          description: "0 - público. 1 - restrito. 2 - sigiloso. Null – o documento\
+            \ assumirá o nível de acesso e hipótese legal sugeridos para o tipo do\
+            \ processo, conforme cadastro no SEI"
+          enum:
+          - 0
+          - 1
+          - 2
+          type: string
+        idHipoteseLegal:
+          description: Identificador da hipótese legal associada
+          type: string
+        conteudo:
+          description: Conteúdo do arquivo codificado em Base64. Para documentos gerados
+            será o conteúdo da seção principal do editor HTML e para documentos externos
+            será o conteúdo do anexo.
+          type: string
+        conteudoMTOM:
+          format: byte
+          description: "Conteúdo textual ou binário do documento. Este campo somente\
+            \ poderá ser utilizado para documentos externos. O sistema somente aceitará\
+            \ requisições com um dos atributos preenchidos: Conteudo ou ConteudoMTOM."
+          type: string
+        idArquivo:
+          description: Identificador do arquivo
+          type: string
+        campo:
+          $ref: '#/components/schemas/Campo'
+        sinBloqueado:
+          description: true/false - bloqueando o documento não será possível excluí-lo
+            ou alterar seu conteúdo
+          default: false
+          enum:
+          - true
+          - false
+          type: boolean
+          example: false
+    Assunto:
+      required:
+      - codigoEstruturado
+      - descricao
+      type: object
+      properties:
+        codigoEstruturado:
+          description: "Código do Assunto, ex.00.01.01.01"
+          type: string
+        descricao:
+          description: Descrição do assunto
+          type: string
+    Interessado:
+      required:
+      - sigla
+      - nome
+      type: object
+      properties:
+        sigla:
+          description: Sigla do participante
+          type: string
+        nome:
+          description: Nome do participante
+          type: string
+    Destinatario:
+      required:
+      - sigla
+      - nome
+      type: object
+      properties:
+        sigla:
+          description: Sigla do destinatário
+          type: string
+        nome:
+          description: Nome do destinatário
+          type: string
+    Remetente:
+      required:
+      - sigla
+      - nome
+      type: object
+      properties:
+        sigla:
+          description: Sigla do participante
+          type: string
+        nome:
+          description: Nome do participante
+          type: string
+    Campo:
+      required:
+      - nome
+      - valor
+      type: object
+      properties:
+        nome:
+          description: Nome do campo do formulário
+          type: string
+        valor:
+          description: Valor do campo do formulário
+          type: string
+    RetornoGeracaoProcedimento:
+      required:
+      - idProcedimento
+      - procedimentoFormatado
+      - linkAcesso
+      type: object
+      properties:
+        idProcedimento:
+          description: Id interno do processo no SEI.
+          type: string
+          example: ""
+        procedimentoFormatado:
+          description: Número do processo visível para o usuário.
+          type: string
+          example: 03.110000147.0000001/2024-99
+        linkAcesso:
+          description: Link para acesso ao processo
+          type: string
+        retornoInclusaoDocumentos:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetornoInclusaoDocumento'
+    RetornoInclusaoDocumento:
+      required:
+      - idDocumento
+      - documentoFormatado
+      - linkAcesso
+      type: object
+      properties:
+        idDocumento:
+          description: Id interno do documento no SEI
+          type: string
+          example: "200123"
+        documentoFormatado:
+          description: Número do documento visível para o usuário.
+          type: string
+          example: "0003934"
+        linkAcesso:
+          description: Link para acesso ao documento
+          type: string
+    IdProcedimento:
+      description: Id interno do processo no SEI
+      type: string
+      example: "100201"
+    ProcedimentoFormatado:
+      description: Número do processo visível para o usuário.
+      type: string
+      example: 03.110000147.0000001/2024-99
+    TipoProcedimento:
+      required:
+      - idTipoProcedimento
+      - nome
+      type: object
+      properties:
+        idTipoProcedimento:
+          description: Identificador do tipo de processo
+          type: string
+          example: "100"
+        nome:
+          description: Nome do tipo de processo
+          type: string
+          example: Ata de Reunião
+    ItemUnidadeProcedimentoAberto:
+      type: object
+      properties:
+        idUnidade:
+          description: Identificador da unidade no SEI (sugere-se que este id seja
+            armazenado em uma tabela de parâmetros no sistema cliente)
+          type: string
+          example: "10000001"
+    ItemAssunto:
+      required:
+      - codigoEstruturado
+      - descricao
+      type: object
+      properties:
+        codigoEstruturado:
+          description: Código do Assunto
+          type: string
+          example: 001.01.01.002
+        descricao:
+          description: Descrição do assunto
+          type: string
+          example: Processo de elaboração de ato normativo
+    ItemInteressado:
+      required:
+      - sigla
+      - nome
+      type: object
+      properties:
+        sigla:
+          description: Sigla do participante
+          type: string
+          example: "100001234"
+        nome:
+          description: Nome do participante
+          type: string
+          example: João da Silva
+    ItemObservacao:
+      required:
+      - descricao
+      - unidade
+      type: object
+      properties:
+        descricao:
+          description: Texto da observação
+          type: string
+          example: Observação teste.
+        unidade:
+          $ref: '#/components/schemas/Unidade'
+    ItemProcedimento:
+      required:
+      - idProcedimento
+      - procedimentoFormatado
+      - tipoProcedimento
+      type: object
+      properties:
+        idProcedimento:
+          $ref: '#/components/schemas/IdProcedimento'
+        procedimentoFormatado:
+          $ref: '#/components/schemas/ProcedimentoFormatado'
+        TipoProcedimento:
+          $ref: '#/components/schemas/TipoProcedimento'
+    Unidade:
+      required:
+      - idUnidade
+      - sigla
+      - descricao
+      type: object
+      properties:
+        idUnidade:
+          description: Identificador da unidade
+          type: string
+        sigla:
+          description: Sigla da unidade
+          type: string
+        descricao:
+          description: Descrição da unidade
+          type: string
+        sinProtocolo:
+          description: S/N - indica se é uma unidade protocolo
+          type: string
+        sinArquivamento:
+          description: S/N - indica se é uma unidade arquivamento
+          type: string
+        sinOuvidoria:
+          description: S/N - indica se é uma unidade ouvidoria
+          type: string
+    Usuario:
+      type: object
+      properties:
+        idUsuario:
+          description: Identificador do usuário
+          type: string
+        sigla:
+          description: Sigla do usuário
+          type: string
+        nome:
+          description: Nome do usuário
+          type: string
+    AtributoAndamento:
+      type: object
+      properties:
+        nome:
+          description: Nome do atributo
+          type: string
+        valor:
+          description: Valor do atributo
+          type: string
+        idOrigem:
+          description: Identificador auxiliar associado com este atributo
+          type: string
+    Andamento:
+      required:
+      - descricao
+      - dataHora
+      - unidade
+      - usuario
+      type: object
+      properties:
+        idAndamento:
+          description: Identificador interno do andamento
+          type: string
+        idTarefa:
+          description: Identificador da tarefa associada
+          type: string
+        idTarefaModulo:
+          description: Identificador da tarefa de módulo
+          type: string
+        descricao:
+          description: Texto do andamento
+          type: string
+        dataHora:
+          description: Data/hora em que o andamento foi gerado
+          type: string
+        unidade:
+          $ref: '#/components/schemas/Unidade'
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        atributoAndamento:
+          $ref: '#/components/schemas/AtributoAndamento'
+    LancarAndamentoRequest:
+      required:
+      - protocoloProcedimento
+      - idTarefa
+      - idTarefaModulo
+      - atributos
+      type: object
+      properties:
+        protocoloProcedimento:
+          description: "Número do processo visível para o usuário, ex.: 1210000000774"
+          type: string
+        idTarefa:
+          description: Identificador da tarefa associada
+          type: string
+        idTarefaModulo:
+          description: Identificador da tarefa de módulo
+          type: string
+        atributos:
+          type: array
+          items:
+            $ref: '#/components/schemas/AtributoAndamento'
+    SobrestarRequest:
+      required:
+      - protocoloProcedimento
+      - protocoloProcedimentoVinculado
+      - motivo
+      type: object
+      properties:
+        protocoloProcedimento:
+          description: "Número do processo visível para o usuário, ex.: 1210000000774"
+          type: string
+        protocoloProcedimentoVinculado:
+          description: "Opcional. Número do processo visível para o usuário, exemplo\
+            \ = 11.1.000000293-2"
+          type: string
+        motivo:
+          description: Texto do motivo do sobrestamento
+          type: string
+    gerarDisponibilizacaoRequest:
+      required:
+      - protocoloProcedimento
+      - EmailUnidade
+      - Destinatario
+      - EmailDestinatario
+      - Motivo
+      - Senha
+      - Dias
+      type: object
+      properties:
+        protocoloProcedimento:
+          description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+          type: string
+        IdProcedimento:
+          description: "Identificador do processo onde o documento deve ser inserido,\
+            \ passar null quando na mesma operação estiver sendo gerado o processo.\
+            \ Opcional se ProtocoloProcedimento informado"
+          type: string
+        EmailUnidade:
+          description: E-mail cadastrado na Unidade
+          type: string
+        Destinatario:
+          description: "Informar o usuário Externo - OBS: Caso informado, o tipo será\
+            \ (D - Destinatario Isolado), o campo tipo não é preciso ser informado.\
+            \ Obrigatório informar caso não informado o campo IdUsuarioExterno"
+          type: string
+        EmailDestinatario:
+          description: E-mail do Destinatário
+          type: string
+        IdContato:
+          description: "Identificador interno do contato - É possivel obter o idContato\
+            \ no endpoint **[/contatos](https://integrador.sp.gov.br/wps/portal/integrador/catalogoApis/API/sei_parametros)**\
+            \ (Lista de Contatos) na API sei-parametros"
+          type: string
+        IdParticipante:
+          description: "Informar o código do Participante - OBS: Caso informado, o\
+            \ tipo será (I - Interessado), o campo tipo não é preciso ser informado."
+          type: string
+        IdUsuarioExterno:
+          description: "Informar o identificador do Usuário Externo - OBS: Caso informado\
+            \ o tipo será (E - Usuario Externo), o campo tipo não é preciso ser informado."
+          type: string
+        Motivo:
+          description: Motivo da Disponibilização
+          type: string
+        Tipo:
+          description: I - Interessado E - Usuario Externo D - Destinatario Isolado
+          type: string
+        SinInclusao:
+          description: "Campo sinalizador que aceita apenas os valores S ou N - Obrigató\
+            rio informar apenas se informado o campo IdUsuarioExterno, caso não informado\
+            \ seu valor default é N. Serve para informar se o usuário externo poderá\
+            \ incluir documentos no processo."
+          type: string
+        Series:
+          description: Obrigatório se SinInclusao for 'S'. Informar o ID do tipo de
+            documento que poderar ser incluido pelo usuário externo.
+          type: string
+        Protocolos:
+          description: "Número do documento visível para o usuário, ex.: 0003934"
+          type: string
+        Senha:
+          description: Informar a senha cadastrada no AD ou no RHDS. (Necessário cadastrar
+            um usuário no SIP com o mesmo nome do sistema integrador).
+          type: string
+        Dias:
+          description: Prazo disponibilização do Documento / Processo
+          type: string
+    retornoGeracaoDisponibilizacao:
+      required:
+      - idAcessoExterno
+      type: object
+      properties:
+        idAcessoExterno:
+          description: Identificador do Acesso Externo
+          type: string
+    consultardisponibilizacoesResponse:
+      type: object
+      properties:
+        AcessosExternos:
+          required:
+          - idAcessoExterno
+          - IdDocumento
+          - SiglaOrgaoUnidade
+          - SiglaUnidade
+          - EmailDestinatario
+          - IdAtividade
+          - AberturaAtividade
+          - Validade
+          - Cancelamento
+          type: array
+          items:
+            properties:
+              idAcessoExterno:
+                description: Identificador do Acesso Externo
+                type: string
+              IdDocumento:
+                description: Identificador do documento
+                type: string
+              siglaContato:
+                description: Sigla do contato
+                type: string
+              SiglaOrgaoUnidade:
+                description: Sigla do órgão
+                type: string
+              SiglaUnidade:
+                description: Sigla da unidade
+                type: string
+              IdAtividade:
+                description: Identificador da atividade realizada
+                type: string
+              DescricaoUnidade:
+                description: Descrição da unidade
+                type: string
+              EmailDestinatario:
+                description: E-mail do Destinatário
+                type: string
+              AberturaAtividade:
+                description: Data da abertura da atividade
+                type: string
+              Validade:
+                description: Data de validade do acesso externo
+                type: string
+              Cancelamento:
+                description: Data de cancelamento
+                type: string
+              dthVisualizacao:
+                description: Data da visualização
+                type: string
+              linkAcessoExterno:
+                description: Link de disponibilização de acesso externo
+                type: string
+    AnexarProcedimentoRequest:
+      required:
+      - protocoloProcedimentoAnexado
+      type: object
+      properties:
+        protocoloProcedimentoAnexado:
+          description: Número do processo que será anexado ao processo
+          type: string
+    RetornoAnexacaoProcedimento:
+      required:
+      - message
+      type: object
+      properties:
+        message:
+          description: Mensagem de retorno da anexação de processos
+          type: string
+    RelacionamentoRequest:
+      required:
+      - protocoloProcedimento2
+      type: object
+      properties:
+        protocoloProcedimento2:
+          description: "Número do processo visível para o usuário, ex.: 1110000002932"
+          type: string
+    AtribuicaoRequest:
+      required:
+      - IdUsuario
+      - SinReabrir
+      type: object
+      properties:
+        IdUsuario:
+          description: Id do Usuario na Unidade
+          type: string
+        SinReabrir:
+          description: S/N - sinalizador indicando se o processo deve ser reaberto
+            automatica-mente caso esteja concluído na unidade. Para realizar a reabertura
+            o ser-viço deverá ter também a operação "Reabrir Processo" liberada no
+            SEI.
+          type: string
+    ProcessoIndividualRequest:
+      required:
+      - idOrgaoProcedimento
+      - idTipoProcedimento
+      - idOrgaoUsuario
+      - siglaUsuario
+      type: object
+      properties:
+        idOrgaoProcedimento:
+          description: Identificador do órgão do processo
+          type: string
+          example: 0
+        idTipoProcedimento:
+          description: Identificador do tipo do processo
+          type: string
+          example: 100000140
+        idOrgaoUsuario:
+          description: Identificador do órgão do usuário
+          type: string
+          example: 0
+        siglaUsuario:
+          description: Sigla do usuário
+          type: string
+          example: teste
+    ProcessoIndividualResponse:
+      type: object
+      properties:
+        idProcedimento:
+          description: "Id interno do processo no SEI, ex.:1210000000774"
+          type: string
+        procedimentoFormatado:
+          description: "Número do documento visível para o usuário, ex.: 0003934"
+          type: string
+        TipoProcedimento:
+          $ref: '#/components/schemas/TipoProcedimento'
+    DefinirControlePrazoRequest:
+      required:
+      - protocoloProcedimento
+      - dataPrazo
+      - dias
+      - sinDiasUteis
+      type: object
+      properties:
+        protocoloProcedimento:
+          description: "Número do processo visível para o usuário, ex: 12.1.000000077-4"
+          type: string
+          example: 12.1.000000077-4
+        dataPrazo:
+          description: Data certa para o prazo
+          type: string
+          example: 01/01/2024
+        dias:
+          description: Número de dias para o controle de prazo
+          type: string
+          example: 0
+        sinDiasUteis:
+          description: S/N – indica se o valor passado no atributo Dias corresponde
+            a dias úteis ou não
+          type: string
+          example: N+
+    DefinirMarcadorRequest:
+      required:
+      - idMarcador
+      type: object
+      properties:
+        idMarcador:
+          description: Identificador do marcador
+          type: integer
+        texto:
+          description: Texto associado com a definição
+          type: string
+    listarAtribuicoesResponse:
+      required:
+      - idProcedimento
+      - procedimentoFormatado
+      - TipoProcedimento
+      - linkAcesso
+      - SinInicial
+      type: object
+      properties:
+        total:
+          description: Total de Processos atribuidos
+          type: string
+        processosAtribuido:
+          type: array
+          items:
+            properties:
+              idProcedimento:
+                description: Identificador do Acesso Externo
+                type: string
+              procedimentoFormatado:
+                description: "Número do processo visível para o usuário, ex.: 1210000000774"
+                type: string
+              TipoProcedimento:
+                $ref: '#/components/schemas/TipoProcedimento'
+              LinkAcesso:
+                description: Link para acesso ao documento
+                type: string
+              SinInicial:
+                type: string
+    Marcador:
+      required:
+      - idMarcador
+      - nome
+      - icone
+      - sinAtivo
+      type: object
+      properties:
+        idMarcador:
+          description: Identificador do marcador
+          type: integer
+        nome:
+          description: Nome do marcador
+          type: string
+        icone:
+          description: Ícone do marcador em formato PNG codificado em Base64
+          type: string
+        sinAtivo:
+          description: S/N - Sinalizador indica se o marcador está ativo
+          type: string
+    AndamentoMarcador:
+      required:
+      - idAndamentoMarcador
+      - texto
+      - dataHora
+      - Usuario
+      - Marcador
+      type: object
+      properties:
+        idAndamentoMarcador:
+          description: Identificador interno do andamento de marcador
+          type: string
+        texto:
+          description: Texto associado com o andamento
+          type: string
+        dataHora:
+          description: Data/hora em que o andamento foi gerado
+          type: string
+        Usuario:
+          $ref: '#/components/schemas/Usuario'
+        Marcador:
+          $ref: '#/components/schemas/Marcador'
+    AndamentosResponse:
+      type: object
+      properties:
+        Andamentos:
+          type: array
+          items:
+            properties:
+              idAndamento:
+                description: Identificador interno do andamento
+                type: string
+              idTarefa:
+                description: Identificador da tarefa associada
+                type: string
+              idTarefaModulo:
+                description: Identificador da tarefa de módulo
+                type: string
+              descricao:
+                description: Texto do andamento
+                type: string
+              dataHora:
+                description: Data/hora em que o andamento foi gerado
+                type: string
+              usuarios:
+                $ref: '#/components/schemas/Usuario'
+              atributoAndamento:
+                $ref: '#/components/schemas/AtributoAndamento'
+              unidade:
+                $ref: '#/components/schemas/Unidade'
+    andamentosCompletoResponse:
+      type: object
+      properties:
+        Andamentos:
+          type: array
+          items:
+            properties:
+              idProcesso:
+                description: Identificador interno do processo
+                type: string
+              protocoloProcedimento:
+                description: "Número do processo visível para o usuário, ex.: 99990.000069/2024-71"
+                type: string
+              idAndamento:
+                description: Identificador interno do andamento
+                type: string
+              idTarefa:
+                description: Identificador da tarefa associada
+                type: string
+              descricao:
+                description: Texto do andamento
+                type: string
+              dataHora:
+                description: Data/hora em que o andamento foi gerado
+                type: string
+              data:
+                description: Data em que o andamento foi gerado (separado)
+                type: string
+              hora:
+                description: Hora em que o andamento foi gerado (separado)
+                type: string
+              dataRetornoProgramado:
+                description: Data do Retorno Programado (Caso o processo tenha um
+                  prazo de retorno programado)
+                type: string
+              idTipoProcedimento:
+                description: Identificador interno do tipo de processo
+                type: string
+              descricaoTipoProcesso:
+                description: Descrição do tipo de processo
+                type: string
+              usuarios:
+                $ref: '#/components/schemas/Usuario'
+              unidade:
+                description: Identificador da unidade final
+                type: object
+                properties:
+                  idUnidade:
+                    description: Identificador da unidade
+                    type: string
+                  sigla:
+                    description: Sigla da unidade
+                    type: string
+                  descricao:
+                    description: Descrição da unidade
+                    type: string
+              unidadeOrigem:
+                description: Identificador da unidade em que a operação foi realizada
+                type: object
+                properties:
+                  idUnidade:
+                    description: Identificador da unidade
+                    type: string
+                  sigla:
+                    description: Sigla da unidade
+                    type: string
+                  descricao:
+                    description: Descrição da unidade
+                    type: string
+              documento:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    idProcedimento:
+                      description: Identificador do documento
+                      type: string
+                    protocoloProcedimento:
+                      description: Código Formatado do Documento
+                      type: string
+                    idSerie:
+                      description: Número que identifica o Tipo de Documento utilizado
+                        pelo Documento
+                      type: string
+              atributoAndamento:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AtributoAndamento'
+    AlterarNivelAcessoProcesso:
+      required:
+      - nivelAcesso
+      - hipotese
+      type: object
+      properties:
+        nivelAcesso:
+          description: 0 - público / 1 - restrito / 2 - sigiloso (Não Permitido alterar
+            para sigiloso)
+          type: string
+        hipotese:
+          description: Identificador da hipótese legal associada
+          type: string
+    listaProcessos:
+      type: object
+      properties:
+        total:
+          description: "Total de Processos da busca por unidade, difere da utilizaç\
+            ão do limit"
+          type: string
+        processos:
+          $ref: '#/components/schemas/Processos'
+    Processos:
+      type: array
+      items:
+        properties:
+          idProcedimento:
+            type: string
+            example: "131"
+          protocoloProcedimento:
+            type: string
+            example: 99990.000069/2024-71
+          seiNumMaxDocsPasta:
+            type: string
+            example: "20"
+          tipoProcesso:
+            type: string
+            example: Recadastramento Presencial Servidores Ativos
+          unidade:
+            $ref: '#/components/schemas/UnidadeProcesso'
+          usuarioAtribuido:
+            $ref: '#/components/schemas/UsuarioAtribuido'
+          ciencias:
+            $ref: '#/components/schemas/Ciencias'
+          marcadores:
+            $ref: '#/components/schemas/Marcadores'
+          ultimaMovimentacao:
+            type: string
+            example: "2"
+          status:
+            $ref: '#/components/schemas/Status'
+    UnidadeProcesso:
+      type: object
+      properties:
+        idUnidade:
+          type: string
+          example: "110000001"
+        sigla:
+          type: string
+          example: TESTE
+        descricao:
+          type: string
+          example: Unidade de Teste 1
+    UsuarioAtribuido:
+      type: object
+      properties:
+        idAtividade:
+          description: Código identificador da atividade de andamento.
+          type: string
+          example: "2014"
+        idUsuario:
+          description: Identificador do usuário.
+          type: string
+          example: "100000005"
+        sigla:
+          description: Sigla do usuário.
+          type: string
+          example: TESTE
+        nome:
+          description: Nome do usuário
+          type: string
+          example: teste
+        nomeformatado:
+          description: Nome formatado do usuario.
+          type: string
+          example: "(Sigla - Nome) Ex: TESTE - teste"
+    Ciencias:
+      type: object
+      properties:
+        idAtividade:
+          type: string
+          example: "1382"
+        data:
+          type: string
+          example: 23/07/2024
+        hora:
+          type: string
+          example: 09:20:56
+        descricao:
+          type: string
+          example: Ciência no documento 0000511 (Apostila)
+        unidade:
+          $ref: '#/components/schemas/UnidadeProcesso'
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+    Marcadores:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Marcador de Teste
+        texto:
+          type: string
+          example: Texto de teste
+        idCor:
+          type: string
+          example: "31"
+    Status:
+      type: object
+      properties:
+        documentoSigiloso:
+          type: string
+          example: ""
+        documentoRestrito:
+          type: string
+          example: "N"
+        documentoNovo:
+          type: string
+          example: "N"
+        documentoPublicado:
+          type: string
+          example: "N"
+        anotacao:
+          type: string
+          example: "N"
+        anotacaoPrioridade:
+          type: string
+          example: "N"
+        ciencia:
+          type: string
+          example: "N"
+        retornoProgramado:
+          type: string
+          example: "N"
+        retornoData:
+          type: string
+          example: ""
+        retornoAtrasado:
+          type: string
+          example: "N"
+        processoAcessadoUsuario:
+          type: string
+          example: "N"
+        processoAcessadoUnidade:
+          type: string
+          example: "N"
+        processoRemocaoSobrestamento:
+          type: string
+          example: "N"
+        processoBloqueado:
+          type: string
+          example: "N"
+        processoDocumentoIncluidoAssinado:
+          type: string
+          example: "N"
+        processoPublicado:
+          type: string
+          example: "N"
+        nivelAcessoGlobal:
+          type: string
+          example: "0"
+        podeGerenciarCredenciais:
+          type: string
+          example: "N"
+        processoAberto:
+          type: string
+          example: S
+        processoEmTramitacao:
+          type: string
+          example: S
+        processoSobrestado:
+          type: string
+          example: "N"
+        processoAnexado:
+          type: string
+          example: "N"
+        podeReabrirProcesso:
+          type: string
+          example: "N"
+        podeRegistrarAnotacao:
+          type: string
+          example: S
+        podeRemoverSobrestamento:
+          type: string
+          example: ""
+        tipo:
+          type: string
+          example: T
+        processoGeradoRecebido:
+          type: string
+          example: R
+    ListarDocumentosProcessoResponse:
+      type: object
+      properties:
+        total:
+          description: "Total de Documentos da busca por unidade, não difere da utilizaç\
+            ão do Start e limit"
+          type: string
+        documentos:
+          type: array
+          items:
+            properties:
+              idDocumento:
+                description: Id interno do documento no SEI
+                type: string
+                example: "100230"
+              tipo:
+                description: "Tipo do Documento, pode ser: G = documento gerado (conteú\
+                  do em HTML criado diretamente no SEI) R = documento recebido ou\
+                  \ externo (arquivo externo enviado via upload, normalmente pdf."
+                type: string
+                example: G
+              idProcedimento:
+                description: Id interno do processo no SEI
+                type: string
+                example: ""
+              procedimentoFormatado:
+                description: "Número do documento visível para o usuário, exemplo\
+                  \ = 12.1.000000077-4"
+                type: string
+              nome:
+                description: Nome do arquivo anexado
+                type: string
+              idSerie:
+                description: Número que identifica o Tipo de Documento utilizado pelo
+                  Documento
+                type: string
+              nomeArvore:
+                description: Nome complementar a ser exibido na árvore de documentos
+                  do processo
+                type: string
+              titulo:
+                description: Descrição do titulo
+                type: string
+              mimeType:
+                description: tipo de mídia de Internet ou tipo MIME
+                type: string
+              informacao:
+                description: Descrição do titulo
+                type: string
+              tamanho:
+                description: Tamanho total do arquivo em bytes
+                type: string
+              idTipoConferencia:
+                description: Identificador do tipo de conferência associada com o
+                  documento externo.
+                type: string
+              Unidade:
+                type: object
+                properties:
+                  idUnidade:
+                    description: Número que identifica a unidade.
+                    type: string
+                  sigla:
+                    description: Sigla da unidade
+                    type: string
+                  descricao:
+                    description: Descrição da unidade.
+                    type: string
+              Status:
+                type: object
+                properties:
+                  sinBloqueado:
+                    description: Variável categórica que indica se o documento está
+                      bloqueado (S) ou não (N).
+                    type: string
+                  documentoSigiloso:
+                    description: Identifica se o documento é sigiloso (S) ou não (N)
+                    type: string
+                  documentoRestrito:
+                    description: Identifica se o documento é restrito (S) ou não (N)
+                    type: string
+                  documentoPublicado:
+                    description: Identifica se o documento foi publicado (S) ou não
+                      (N)
+                    type: string
+                  documentoAssinado:
+                    description: Identifica se o documento está assinado (S) ou não
+                      (N)
+                    type: string
+                  ciencia:
+                    description: Variável categórica que indica sim (S) ou não (N)
+                      para Ciência sobre o protocolo.
+                    type: string
+                  documentoCancelado:
+                    description: Identifica se o documento está cancelado (S) ou não
+                      (N)
+                    type: string
+                  podeVisualizarDocumento:
+                    description: Identifica se o documento pode ser visualizado (S)
+                      ou não (N)
+                    type: string
+                  permiteAssinatura:
+                    description: Identifica se e o documento e permitido assinatura
+                      (1 - true) ou não (0 - false)
+                    type: string
+                  permiteAlterar:
+                    description: Identifica se e o documento e permitido alterar (1
+                      - true) ou não (0 - false)
+                    type: string
+                  podeVisualizarMetadados:
+                    description: Identifica se pode visualizar os Metadados do documento
+                      (S) ou não (N)
+                    type: string
+                  podeAlterarMetadados:
+                    description: Identifica se pode altera os metadados do documento
+                      (S) ou não (N)
+                    type: string
+  responses:
+    UnauthorizedError:
+      description: Access token é invalido ou expirado
+    erro400:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - 400
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+    erro500:
+      description: Erro inesperado no serviço
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                enum:
+                - 500
+                type: string
+              trace:
+                description: Trace ID
+                type: string
+              messages:
+                type: array
+                items:
+                  description: Mensagens de erro
+                  type: string
+  parameters:
+    xTraceIdSP:
+      name: X-TraceId-SP
+      in: header
+      description: Identificador do request para localiza-lo na log do sistema. Preferencialmente
+        utiliar um código único para cada request.
+      required: true
+      schema:
+        type: string
+      example: nome-da-aplicacao-data-hora-segundos
+    xSiglaSistema:
+      name: X-SiglaSistema
+      in: header
+      description: Sigla do Sistema cadastrado no SEI para permitir utilização do
+        SOAP
+      required: true
+      schema:
+        type: string
+      example: INTEGRACAOCLIENTES
+    xIdentificacaoServico:
+      name: X-IdentificacaoServico
+      in: header
+      description: Token de acesso do Sistema cadastrado no SEI
+      required: true
+      schema:
+        type: string
+      example: 637f170e0a06056254adf2896c1d9f2fa668797ac6f6678bae9533487a07736003bfca44
+    xIdUnidade:
+      name: X-IdUnidade
+      in: header
+      description: ID da unidade que executará o serviço no SEI. Essa unidade aparecerá
+        no andamento do processo como a unidade executora da operação.
+      required: true
+      schema:
+        type: string
+      example: "110000384"
+    xRegional:
+      name: X-Regional
+      in: header
+      description: Informar a regional do município (Obrigatório apenas para o sei-cidades)
+      required: false
+      schema:
+        type: string
+      example: campinas
+    protocoloProcedimentoPath:
+      name: protocoloProcedimento
+      in: path
+      description: "Número do processo visível para o usuário na interface do SEI.\
+        \ Remover pontos, barras e hifens, deixar somente números. O exemplo abaixo\
+        \ é referente ao processo 000.00000054/2026-12"
+      required: true
+      schema:
+        type: string
+      example: "00000000054202612"
+    start:
+      name: start
+      in: query
+      description: "Start e limit são utilizados para paginar o request, ou seja limitar\
+        \ a quantidade trazida de itens na resposta. Start é o número da página desejada,\
+        \ iniciando por 0; limit é a quantidade de itens trazida em cada página. <p>Por\
+        \ exemplo: start=2 e limit=10 vai trazer os itens de 30 a 40 de uma pesquisa.\
+        \ <p>O último item de cada página repete na próxima, então deve ser ignorado.<p>Recomenda-se\
+        \ não exceder 100 itens por página para não impactar o SEI."
+      schema:
+        type: string
+      example: "0"
+    limit:
+      name: limit
+      in: query
+      description: Quantidade de itens trazidos em uma página. Verifique o funcionamento
+        no parâmetro start.
+      schema:
+        type: string
+      example: "50"
+  securitySchemes:
+    IdpSP:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
