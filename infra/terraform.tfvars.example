@@ -1,0 +1,7 @@
+project_id             = "your-gcp-project-id"
+region                 = "southamerica-east1"
+cloud_run_service_name = "sei-mcp-server"
+
+# Optional: Set enable_ssl = true and provide domain_name for Google-managed HTTPS
+enable_ssl  = false
+domain_name = ""
